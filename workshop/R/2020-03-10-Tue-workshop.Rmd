@@ -73,13 +73,9 @@ What will be the value of the variable after each statement?
 ```{r challenge1}
 # first work out the answer yourself, then run the code block to check for answers
 mass <- 47.5
-
 age <- 122
-
 mass <- mass * 2.3
-
 age <- age - 20
-
 ```
 
 ## Comments

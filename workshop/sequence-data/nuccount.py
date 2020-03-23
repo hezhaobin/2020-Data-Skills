@@ -15,4 +15,4 @@ for name, seq, qual in readfq(sys.stdin):
 
 # print the results
 for base in IUPAC_BASES:
-    print base + "\t" + str(counts[base])
+    print(base + "\t" + str(counts[base]))

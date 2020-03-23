@@ -36,4 +36,4 @@ if __name__ == "__main__":
         n += 1
         slen += len(seq)
         qlen += qual and len(qual) or 0
-    print n, '\t', slen, '\t', qlen
+    print(n, '\t', slen, '\t', qlen)

@@ -30,7 +30,7 @@ BiocManager::install('qrqc')
 
 ```
 ## Trimming low-quality bases with sickle and seqtk
-now, go back to your terminal and check to makre sure that you are in the 'sequence-data'folder. Use 'ls; to see is the untreated1_chr4.fq is in the folder
+Now, go back to your terminal and check to make sure that you are in the 'sequence-data'folder. Use 'ls' to see if the untreated1_chr4.fq is in the folder
 ```bash 
 # TAB, DONT TYPE
 $ ./sickle se -f untreated1_chr4.fq -t sanger -o untreated1_chr4_sickle.fq

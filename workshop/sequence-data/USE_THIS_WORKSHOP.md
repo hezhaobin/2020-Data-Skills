@@ -83,16 +83,16 @@ Now, go back to RStudio. Be sure to check that your working directory is pointed
 > d <- do.call(rbind,quals)
 # this combines separate dataframes in a list into single dataframes
 
-> pl <- ggplot(d)+geom_line(aes(x=position,y=mean,linetype=trimmer))
-> pl <- pl + ylab("mean quality (sanger)")+ theme_bw()
-> print(pl)
+> p1 <- ggplot(d)+geom_line(aes(x=position,y=mean,linetype=trimmer))
+> p1 <- p1 + ylab("mean quality (sanger)")+ theme_bw()
+> print(p1)
 # visualize qualities 
 
 # what do you see? 
 
 > p2 <- qualPlot(seq_info, quartile.color=NULL, mean.color=NULL) + theme_bw()
-> p2 <- p2 + scale_y_continuous("quality (sanger)")
-print(p2)
+> p2 <- p2 + ylab("quality (sanger)")
+> print(p2)
 # uses qrqc’s qualPlot with list produces panel plots
 # only shows 10% to 90% quantiles and lowes curve
 ```

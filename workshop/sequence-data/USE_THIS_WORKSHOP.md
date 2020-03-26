@@ -126,9 +126,9 @@ counts = Counter()
 # create a new Counter object
 
 for name, seq, qual in readfq(sys.stdin):
-# uses the readfq function in the readfq module to read FASTQ/FASTA entries from the file handle argument into the name, seq, qual variables
+    # uses the readfq function in the readfq module to read FASTQ/FASTA entries from the file handle argument into the name, seq, qual variables
     # for each sequence entry, add all its bases to the counter
-     counts.update(seq.upper())
+    counts.update(seq.upper())
     # takes any iterable object and adds them to the counter. We convert all characters to uppercase with the upper( ) method, so that       lowercase soft-masked bases are also counted. 
 
 # print the results
@@ -139,7 +139,7 @@ for base in IUPAC_BASES:
 
 - Now run the script
     ```bash
-    cat contam.fastq | ./nuccount.py
+    $ cat contam.fastq | ./nuccount.py
     ```
 
 ## Indexed FASTA Files
@@ -148,12 +148,13 @@ for base in IUPAC_BASES:
 - A common computational strategy that allows for easy and fast random access is indexing the file. It allows us to easily extract subsequences
 
 ```bash
-samtools faidx Mus_musculus.GRCm38.75.dna.chromosome.8.fa 8:123407082-123410744
+$ gunzip Mus_musculus.GRCm38.75.dna.chromosome.8.fa.gz
+$ samtools faidx Mus_musculus.GRCm38.75.dna.chromosome.8.fa 8:123407082-123410744
 ```
 
 - What do you see?
 - `samtools faidx` allows for multiple regions at once, so we could do:
 
     ```bash
-    samtools faidx Mus_musculus.GRCm38.75.dna.chromosome.8.fa \ 8:123407082-123410744 8:123518835-123536649
+    $ samtools faidx Mus_musculus.GRCm38.75.dna.chromosome.8.fa \ 8:123407082-123410744 8:123518835-123536649
     ```

@@ -126,14 +126,15 @@ What did you learn from the help menu?
     $ multiqc .                   # this runs multiqc
     ```
 1. Now, to view the results, we need a graphic user interface. You have two options here (it's ok if you didn't get this part to work, but give it a try):
-    a. Map your Argon home account directory locally, follow this [instruction](https://wiki.uiowa.edu/display/hpcdocs/Home+Accounts), which you have learned before. Then navigate to the folder that contains the `output/fastqc` and copy the results to your local directory, and view the `multiqc_report.html`
-    b. Secure copy the results to your local computer
+
+    - Map your Argon home account directory locally, follow this [instruction](https://wiki.uiowa.edu/display/hpcdocs/Home+Accounts), which you have learned before. Then navigate to the folder that contains the `output/fastqc` and copy the results to your local directory, and view the `multiqc_report.html`
+    - Secure copy the results to your local computer
         ```bash
-	# first open a new terminal window, not the one that you used to connect to ARGON
-	$ mkdir -p ~/tmp/fastqc; cd ~/tmp/fastqc   # create a temporary folder to hold the results
-	$ rsync -avz -e ssh <HawkID>@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/output/fastqc/ ./
-	# if the rsync command fails, one possibility is that your directory is different from ~/2020-Data-Skills/... 
-	```
+        # first open a new terminal window, not the one that you used to connect to ARGON
+        $ mkdir -p ~/tmp/fastqc; cd ~/tmp/fastqc   # create a temporary folder to hold the results
+        $ rsync -avz -e ssh <HawkID>@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/output/fastqc/ ./
+        # if the rsync command fails, one possibility is that your directory is different from ~/2020-Data-Skills/... 
+        ```
 
 1. View the text output
     If you had trouble downloading the files either using mapped drive or with `rsync`, know that you can also rely on the plain text output
@@ -192,4 +193,3 @@ _Running Trimmomatic_
     Now try to understand what the script does. To submit the job, enter `$ qsub -t 1-3 trimmomatic.sh`, where 1-3 means there are 3 files to submit.
 
     Use `qstat -u <HawkID>` to check the status of your job. If the job finishes, you can use `qacct -j <JOB_ID>` to view the resource usage of your job. Also check the job output and standard error in the `job-log` folder.
-

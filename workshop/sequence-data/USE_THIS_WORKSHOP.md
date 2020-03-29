@@ -4,8 +4,7 @@ author: Bin He, Leslie Speight
 date: 2020-03-24
 ---
 
-Working with Sequence Data Tuesday Workshop 
-===========================================
+# Working with Sequence Data Tuesday Workshop 
 Leslie Speight and Anna Ward
 
 ## Get data
@@ -18,7 +17,7 @@ $ git clone https://github.com/hezhaobin/2020-Data-Skills.git
 $ cd 2020-Data-Skills/workshop/seqeunce-data/ # hint: Tab don’t type!
 $ ls
 ```
-    
+
 Next open Rstudio and install required packages
 
 ```r

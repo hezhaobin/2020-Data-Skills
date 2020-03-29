@@ -32,24 +32,23 @@ Next open Rstudio and install required packages
 
 ## Trimming low-quality bases with sickle and seqtk
 
-- Now, go back to your terminal and check to make sure that you are in the 'sequence-data'folder. Use 'ls' to see is the untreated1_chr4.fq is in the folder
-- **TAB, DONT TYPE**
+- Now, go back to your terminal and check to make sure that you are in the 'sequence-data'folder. Use 'ls' to see if the untreated1_chr4.fq is in the folder
+- **TAB, DON'T TYPE**
 
 ```bash 
-  $ ./sickle se -f untreated1_chr4.fq -t sanger -o untreated1_chr4_sickle.fq
-  # Note you must have the “./” before “sickle” to make this work
-  # `sickle` takes an input file through -f, a quality type through -t, and trimmed output with -o
-  # you should see the following output
-  
-    Total FastQ records: 204355
-    FastQ records kept: 203121
-    FastQ records discarded: 1234
-    
-  # trimming low quality bases with seqtk 
-  $ ./seqtk trimfq untreated1_chr4.fq > untreated1_chr4.trimfq.fq
-  # this takes a single argument and outputs trimmed sequence through standard out
- ```
- 
+$ ./sickle se -f untreated1_chr4.fq -t sanger -o untreated1_chr4_sickle.fq
+# Note you must have the “./” before “sickle” to make this work
+# you should see the following output
+#   Total FastQ records: 204355
+#   FastQ records kept: 203121
+#   FastQ records discarded: 1234
+# sickle takes an input file through -f, a quality type through -t, and trimmed output with -o
+
+# trimming low quality bases with seqtk
+$ ./seqtk trimfq untreated1_chr4.fq > untreated1_chr4.trimfq.fq
+# this takes a single argument and outputs trimmed sequence through standard out
+```
+
 ## Comparing these results in R
 
 Now, go back to RStudio. Be sure to check that your working directory is pointed to `sequence-data`. You can check the current working directory by `getwd()` and set the working directory by either `setwd(path/to/working/directory)` or use the file pane to navigate to the folder and use the "more" icon -> set as working directory

@@ -10,10 +10,15 @@ Working With Alignment Data
 ## Before we start
  
 - This workshop is intended to be completed on the ARGON computing cluster at the University of Iowa.
-    a. if you are working off campus, first download and connect to VPN, following the instructions [here](https://its.uiowa.edu/vpn) or use -p 40 to specify which port is used.
+    a. if you are working off campus, first download and connect to VPN, following the instructions [here](https://its.uiowa.edu/vpn).
     b. if your personal computer is Windows-based and not set up for terminal access, log on to the fastx environment in your browser window.
-    c. to connect to ARGON, use `$ ssh <HawkID>@argon.hpc.uiowa.edu`. Replace "<HawkID>" with your actual HawkID. You will need to have 2-step verification set up.
+    c. to connect to ARGON, open a terminal under FastX (or on your Mac / PuTTY), use `$ ssh <HawkID>@argon.hpc.uiowa.edu`. Replace "<HawkID>" with your actual HawkID. You will need to have 2-step verification set up.
+
 - Make sure you have the book files cloned from Github (or at least Chapter 11) in your Argon home directory.
+    - This should exist as a folder named `bds-files`, possibly under your home directory on ARGON `$ cd ~; ls`
+    - If you don't have it on ARGON, after log in, issue the following command
+        `$ git clone https://github.com/vsbuffalo/bds-files.git`
+    - The files for Chapter 11 is under `bds-files/chapter-11-alignment/`
  
 ## Setup
  
@@ -22,92 +27,137 @@ Working With Alignment Data
 1. Check if the modules needed for this workshop are downloaded. If you are using Argon, they should all be included.
 1. bwa
     This stands for the Burrows-Wheeler Aligner and is a software package for mapping low-divergent sequences against a reference genome.
-```bash
-$ module avail bwa # This command checks if the module is downloaded and should tell you the version downloaded if it is.
-$ module load bwa # Even if the modules are already downloaded, you will still have to load them to have them work. 
-```
+    ```bash
+    $ module avail bwa # This command checks if the module is downloaded and should tell you the version downloaded if it is.
+    $ module load bwa # Even if the modules are already downloaded, you will still have to load them to have them work. 
+    ```
 2. samtools
     This is a tool that will be used for several commands in this chapter.
-```bash
-$ module avail samtools
-$ module load samtools
-```
+    ```bash
+    $ module avail samtools
+    $ module load samtools
+    ```
 ## Command-Line Tools for Working with Alignments in the SAM Format
 ### Converting Between SAM and BAM Formats
  
 ```bash
 $ cd ____ # navigate to the Chapter 11 directory in the book files
+          # if you followed the instruction at the beginning
+	  # this would be ~/bds-files/chapter-11-alignment
+	  # remember to tab, don't type
 ```
+
 As mentioned in the book, many samtools subcommands will require inputs that are in BAM format (recall that this is the binary format whereas SAM is plain-text). Take a peak at one of the SAM files to see what it looks like:
+
 ```bash
 $ head celegans.sam
 ```
+
 Using the command below, you can convert the celegans.sam file in this folder to a BAM format:
+
 ```bash
 $ samtools view -b celegans.sam > celegans_copy.bam
 $ ls # Check that the celegans_copy.bam file is now in your directory
 ```
+
 Try converting a file from BAM to SAM using the below command (Note: if you exclude -h in this command, it will be converted without the header which can cause some issues with your analysis).
+
 ```bash
 $ samtools view -h celegans.bam > celegans_copy.sam
 $ samtools view -b celegans_copy.sam > celegans_copy.bam
 ```
+
 As stated in the book, it is better to store and analyze files in BAM format but SAM format is helpful when you need to manually inspect files. 
  
 ### Sorting and Indexing Alignments
 In order to sort alignments by their alignment positions:
+
 ```bash
 $ samtools sort celegans_unsorted.bam -o celegans_sorted.bam # this command should only be used on files in BAM format
 $ samtools index celegans_sorted.bam # this command creates an index of the file
 $ ls # if the index command worked, you should have a file in your directory called "celegans_sorted.bam.bai"
 ```
+
 ### Extracting and Filtering Alignment
-Once alignments have been sorted and indexed, you can filter out alignments you don't want to include in your analysis and extract the alignments of interest.
+Once alignments have been sorted and indexed, you can filter out alignments you don't want to include in your analysis and extract the alignments of interest. What this means is that if you only want to analyze data on a specific chromosome or only a region of the chromosome, the command below allows you to "extract" just that part of the alignment from an otherwise huge BAM file.
+
 ```bash
 $ samtools index NA12891_CEU_sample.bam # This is data from the 1000 Genomes Project
 $ samtools view NA12891_CEU_sample.bam 1:215906469-215906652 | head -n 3 # This command views some of the alignments in the region specified on chromosome 1
 $ samtools view -b NA12891_CEU_sample.bam 1:215906469-215906652 > USH2A_sample_alns.bam # This writes the alignments we viewed above in BAM format
 ```
+
 #### Optional
-If you have a lot of alignments in bed format, the following command may be used:
+If you have a lot of regions, e.g. 1:xxx-yyy, 2:xxx-yyy, etc., all stored in a file of [BED format](https://genome.ucsc.edu/FAQ/FAQformat.html#format1), the following command may be used:
+
 ```bash
 $ samtools view -L USH2A_exons.bed NA12891_CEU_sample.bam | head -n 3
 ```
+
+A simple example of BED format looks like
+
+```
+chr1  213941196  213942363
+chr1  213942363  213943530
+chr1  213943530  213944697
+chr2  158364697  158365864
+chr2  158365864  158367031
+chr3  127477031  127478198
+chr3  127478198  127479365
+chr3  127479365  127480532
+chr3  127480532  127481699
+```
+
+Although more columns can be present to provide additional information. More on that later.
+
 ### Filtering Alignments
-The samtools view subcommand  also has options to filter alignments that can be piped into another command or written in a file. If you are ever confused about the options for this subcommand, you can type in the following command to see a list of the flags that can be used:
+The samtools view subcommand also has options to filter alignments that can be piped into another command or written in a file. If you are ever confused about the options for this subcommand, you can type in the following command to see a list of the flags that can be used:
 ```bash
 $ samtools view
 ```
+
 There are two options for samtools view for what outputs will contain. Using the flag "-f" will only output the reads with the specified flag(s) while using the flag "-F" will only output the reads without the specified flag(s).
+
 ```bash
 $ samtools flags unmap
-``` 
+```
+
 - What does the output tell you? 
 - How many reads are unmapped?
+
 ```bash
 $ samtools view -f 4 NA12891_CEU_sample.bam | head -n 3
 ```
+
 This output includes reads that match the flag set mentioned above (the second column has the decimal representation corresponding to the unmapped set). This can be checked with:
+
 ```bash
 $ samtools flags 69
 $ samtools flags 181
 ```
+
 - What else does this tell you about the reads in this set? 
 - What are the differences between the 69 and 181 files?
  
 Sometimes, you will want to find outputs with multiple bitwise flags set. For example, you may want to find the first reads that aligned for a proper pair alignment.
+
 ```bash
 $ samtools flags READ1,PROPER_PAIR
 ```
+
 This command tells you what the decimal representation is for these two bitwise flags which will again be shown in the second column. Then, using the decimal representation, you can use the samtools view command to extract these alignments:
+
 ```bash
 $ samtools view -f 66 NA12891_CEU_sample.bam | head -n 3
 ```
+
 If we wanted to exclude alignments from our output, we would use the -F flag mentioned earlier. First, we would need to identify the decimal representation for the categories we want to filter out and then we would apply this knowledge with the samtools view command.
+
 ```bash
 $ samtools flags UNMAP
 $ samtools view -F 4 NA12891_CEU_sample.bam | head -n 3 
 ```
+
 Combining bits can be complicated but useful. It is possible to use both "-f" and "-F" flags in one command which can help to better filter your output. If you want your output to be reads that are aligned and paired but not in a proper pair, you would need to combine bits so that unmapped reads and proper pairs are excluded while paired ends are included. First, you need to determine what the decimal representations are for each bit.
 ```bash
 $ samtools flags paired

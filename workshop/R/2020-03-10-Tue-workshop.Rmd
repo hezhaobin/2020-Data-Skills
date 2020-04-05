@@ -219,7 +219,7 @@ The representation of data in the format of a table where the columns are vector
 The following command can be used to see the structure of a data frame
 
 - Size:
-    -   `dim(surveys)` - returns a vector with the number of rows in the first element, and the number of columns as the second element (the **dim**ensions of the object)
+    -   `dim(surveys)` - returns a vector with the number of rows in the first element, and the number of columns as the second element (the dimensions of the object)
     -   `nrow(surveys)` - returns the number of rows
     -   `ncol(surveys)` - returns the number of columns
 - Content:

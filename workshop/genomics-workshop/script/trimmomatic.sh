@@ -7,7 +7,7 @@
 #----------------------
 # Scheduler parameters
 #  Specify the queue to use
-#! -q BIO-INSTR
+#$ -q BIO-INSTR
 #  give a name to the job, default to script name
 #$ -N trimmomatic
 #  execute the job from the current working directory
@@ -51,4 +51,4 @@ sw=$HOME/sw/Trimmomatic-0.39 # specify the path to the trimmomatic program
 java -jar ${sw}/trimmomatic-0.39.jar PE ${in}/${fq}_1.fastq.gz ${in}/${fq}_2.fastq.gz \
 	                                                        ${out}/${fq}_1.trim.fastq.gz ${out}/${fq}_1un.trim.fastq.gz \
 	                                                        ${out}/${fq}_2.trim.fastq.gz ${out}/${fq}_2un.trim.fastq.gz \
-															SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:${sw}/NexteraPE-PE.fa:2:40:15
+															SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:${sw}/adapters/NexteraPE-PE.fa:2:40:15

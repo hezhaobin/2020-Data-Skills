@@ -27,12 +27,15 @@ Instructions based on <https://datacarpentry.org/genomics-workshop/setup.html>
 ### Install software
 
 1. Preparation
+
     I suggest you create a folder named "sw" to contain all of your custom-installed software on ARGON
     ```sh
     $ cd # go to your home directory
     $ mkdir sw; cd sw # create and enter the sw folder
     ```
+
 1. FastQC
+
     This is a commonly used quality checking program for FASTQ files
     ```sh
     $ wget https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.9.zip
@@ -40,18 +43,23 @@ Instructions based on <https://datacarpentry.org/genomics-workshop/setup.html>
     $ cd FastQC # tab don't type. your folder may have a different name
     $ chmod 755 fastqc # this makes the wrapper code executable
     ```
+
 1. MultiQC
+
     This is a tool that can aggregate FastQC results for individual fastq files
     ```bash
     $ module load python/3.7.0 # this loads the Python version 3.7.0
     $ pip install --user multiqc # --user tells pip to install the software into the user's directory, instead of the system directory
     $ multiqc -h # if you see the help menu, it tells you that your installation is successful
     ```
+
 1. Trimmomatic
+
     [A good introduction](https://wikis.utexas.edu/display/CoreNGSTools/Pre-processing+raw+sequences#Pre-processingrawsequences-TrimmingsequencesTrimming) to why you would want to trim your reads before downstream analysis.
     ```sh
     $ cd ~/sw
     $ wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.39.zip
+    $ unzip Trimmomatic-0.39.zip
     $ cd Trimmomatic-0.39
     $ java -jar trimmomatic-0.39.jar # if you see the options for the program, that means installation is successful
     ```
@@ -81,7 +89,15 @@ It is important to understand the setup of the experiment and how the data is or
    $ R
    ```
    ```r
+   # These are R codes that you should type inside the R console (without the other panels in RStudio
    > meta <- read.csv("Ecoli_metadata_composite.csv", header=TRUE)
+
+   # now you can use various tools you learned in the R class to inspect the data
+   # if you want to use the great tidyverse package, you will need to install it first
+   # > install.packages("tidyverse")
+   # > library(tidyverse)
+   # > meta <- read_csv("Ecoli_metadata_composite.csv")
+   # > meta %>% count(generation)
    ```
 
    Based on the metadata, can you answer the following questions?

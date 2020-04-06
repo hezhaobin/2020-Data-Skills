@@ -30,7 +30,7 @@ $ samtools mpileup -v --no-BAQ --region 1:215906528-215906567 \
  
 To view the intermediate file:
 ```bash
-$ zgrep "^##" -v NA12891_CEU_sample.vcf.gz | \
+$ zgrep -v "^##" NA12891_CEU_sample.vcf.gz | \
 awk 'BEGIN{OFS="\t"} {split($8, a, ";"); print $1,$2,$4,$5$6,a[1],$9,$10}' 
 ```
 
@@ -46,8 +46,8 @@ $ bcftools call -v -m NA12891_CEU_sample.vcf.gz > NA12891_CEU_sample_calls.vcf.g
 - "-v" means that only variant sites will be included in the output
 
 ```bash
-$ zgrep "^##" -v NA12891_CEU_sample_calls.vcf.gz | 
-\ awk 'BEGIN{OFS="\t"} {split($8, a, ";"); print $1,$2,$4,$5,$6,a[1],$9,$10}'
+$ zgrep -v "^##" NA12891_CEU_sample_calls.vcf.gz | \ 
+awk 'BEGIN{OFS="\t"} {split($8, a, ";"); print $1,$2,$4,$5,$6,a[1],$9,$10}'
 ```
 
 - How many variant sites have been identified? 
@@ -57,11 +57,12 @@ $ zgrep "^##" -v NA12891_CEU_sample_calls.vcf.gz |
 "QUAL" stands for quality scores which are PHRED-scaled values that estimate the probability the alternative allele is incorrect. The higher the QUAL score is, the more confidence there is in a base call. "ALT" stands for alternative allele. "." will be found in this column if there is no variant and in those cases "QUAL" represents the probability that the site does have a variant. By omitting "-v" from the command, we can view the call for our site of interest by including all nonvariant calls:
 
 ```bash
-$ bcftools call -m NA12891_CEU_sample.vcf.gz | grep -v "^##" \ awk 'BEGIN{OFS="\t"} {split($8, a, ";"); print $1,$2,$4,$5,$6,a[1],$9,$10}'
+$ bcftools call -m NA12891_CEU_sample.vcf.gz | grep -v "^##" | \
+awk 'BEGIN{OFS="\t"} {split($8, a, ";"); print $1,$2,$4,$5,$6,a[1],$9,$10}'
 ```
 
 - What does the QUAL score for site 215,906,548 tell you about this site?
-- Calculate the probability that this site is variant:(HINT: QUAL = 121837, Probability = 10^(-QUAL/10) * 100%))
+- Calculate the probability that this site is variant:(HINT: Probability = 10^(-QUAL/10) * 100%))
  
 VCF files have Format keys to sort the data which are described in the header. To view:
 

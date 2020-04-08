@@ -18,7 +18,7 @@ $ samtools mpileup --no-BAQ --region 1:215906528-215906567 \
 - As shown above, mpileup is another tool that requires the inputs to be in BAM format. However, the reference genome can be used in FASTA format using "--fasta-ref". "--region" limits the pileup to the region that was specified in the command. "--no-BAQ" disables the Base Alignment Quality which is an additional feature of mpileup.
 - The outputs of this command are pileups and stacked mismatches. However, it is possible to output variant calls instead using mpileup.
 
-#### Variant Calling
+#### Variant calling using `bcftools`
 ```bash
 $ samtools mpileup -v --no-BAQ --region 1:215906528-215906567 \ 
 --fasta-ref human_g1k_v37.fasta NA12891_CEU_sample.bam \ 

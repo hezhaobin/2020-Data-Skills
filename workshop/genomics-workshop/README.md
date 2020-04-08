@@ -209,3 +209,143 @@ _Running Trimmomatic_
     Now try to understand what the script does. To submit the job, enter `$ qsub -t 1-3 trimmomatic.sh`, where 1-3 means there are 3 files to submit.
 
     Use `qstat -u <HawkID>` to check the status of your job. If the job finishes, you can use `qacct -j <JOB_ID>` to view the resource usage of your job. Also check the job output and standard error in the `job-log` folder.
+
+### Variant calling (demonstration)
+_Questions_
+
+- How do I find sequence variants between my sample and a reference genome?
+
+_Objectives_
+
+- Understand the steps involved in variant calling.
+- Describe the types of data formats encountered during variant calling.
+- Use command line tools to perform variant calling.
+
+_Procedures_
+
+1. Download the reference genome for _E. coli_ REL606
+    ```bash
+    $ cd ~/2020-Data-Skills/workshop/genomics-workshop/data # modify the path if yours is different
+    $ mkdir ref_genome
+    $ curl -L -o ./ref_genome/ecoli_rel606.fasta.gz ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/985/GCA_000017985.1_ASM1798v1/GCA_000017985.1_ASM1798v1_genomic.fna.gz
+    $ gunzip ./ref_genome/ecoli_rel606.fasta.gz
+    ```
+
+1. Index the reference genome
+    > Indexing allows the aligner to quickly find potential alignment sites for query sequences in a genome, which saves time during alignment. Indexing the reference only has to be run once. The only reason you would want to create a new index is if you are working with a different reference genome or you are using a different tool for alignment.
+    ```bash
+    $ module load bwa # load the bwa aligner, which is also what we will use to index the genome
+    $ bwa index ./ref_genome/ecoli_rel606.fasta
+    ```
+
+1. Align the reads to the reference genome
+    1. We will first demonstrate alignment using a subset of the real data, which is smaller and takes less time to run
+        ```bash
+        $ curl -L -o sub.tar.gz https://ndownloader.figshare.com/files/14418248 # download the subset of data
+        $ tar xzvf sub.tar.gz              # expand the compressed and archived file
+        $ mv sub trimmed_fastq_small       # rename the folder to make it easier to understand/recall
+        $ cd ..                            # return to the parent folder
+        $ mkdir ./output/{sam,bam,bcf,vcf} # make a series of sub folders for the output
+        $ ls ./output/                     # check to make sure that these folders are there
+        ```
+    2. A basic bwa alignment command looks like below
+        `$ bwa mem ref_genome.fasta input_file_R1.fastq input_file_R2.fastq > output.sam`
+	Check the [bwa options page](http://bio-bwa.sourceforge.net/bwa.shtml) to see all the options that are not used above.
+    3. To actually perform the mapping, do the following
+        ```bash
+	$ bwa mem data/ref_genome/ecoli_rel606.fasta \
+	          data/trimmed_fastq_small/SRR2584866_1.trim.sub.fastq \
+		  data/trimmed_fastq_small/SRR2584866_2.trim.sub.fastq \
+		  > output/sam/SRR2584866.aligned.sam
+		  # the \ tells the shell that the command is not over yet
+		  # this should take ~15s
+		  # the original data will take a lot longer
+	# now let's examine its output
+	$ less -S ./output/sam/SRR2584866.aligned.sam 
+	# can you understand the SAM format by now?
+        ```
+    4. Sort the BAM file by coordinates. This is needed for indexing and other downstream operations
+        ```bash
+	# load the necessary modules
+	$ module load stack/2020.1 # this tells ARGON to use the most recent versions of the samtools and bcftools
+	$ module load samtools; module load bcftools
+	$ samtools --version; bcftools -v # check the versions of the software, and make a note so that you know how to reproduce the results
+	# first we need to convert the SAM file to BAM, this will take ~10s
+	$ samtools view -S -b output/sam/SRR2584866.aligned.sam > output/bam/SRR2584866.aligned.bam
+	# next we will sort it, this will take a few seconds
+	$ samtools sort -o output/bam/SRR2584866.aligned.sorted.bam output/bam/SRR2584866.aligned.bam
+	# we can use another samtools command, flagstat, to learn more about this BAM file
+	$ samtools flagstat output/bam/SRR2584866.aligned.sorted.bam
+	```
+
+1. Variant calling
+    Variant call is a conclusion that there is a nucleotide difference vs. some reference at a given position in an individual genome or transcriptome, often referred to as a Single Nucleotide Polymorphism (SNP). The call is usually accompanied by an estimate of variant frequency and some measure of confidence.
+
+    Instead of `samtools mpileup` we used in the book chapter, we will use `bcftools mpileup` here instead. This is because after version 1.9 of `samtools`, the `mpileup` function has been moved to `bcftools` -- before that users would use `samtools mpileup` to generate VCF/BCF files and pipe it to `bcftools call` for variant calling. But as both softwares are upgraded in their versions, there can be incompatibility between an earlier version of `samtools` with a later version of `bcftool`. To avoid such errors, the authors of the two packages decided to move the `mpileup` from `samtools` to `bcftools`. As a reminder, this illustrates the importance of documenting not only the script used to generate the output, but also the version numbers of the software packages, because results could change significantly between versions.
+    In the command `vcftools mpileup`, the flag `-O b` tells `samtools` to generate a bcf format output file, `-o` specifies where to write the output file, and `-f` flags the path to the reference genome:
+    1. Generate BCF files
+        ```bash
+	$ bcftools mpileup -O b -o output/bcf/SRR2584866_raw.bcf \
+	-f data/ref_genome/ecoli_rel606.fasta output/bam/SRR2584866.aligned.sorted.bam  # this command will take ~1 min or longer depending on the load of the login node
+	```
+    1. Detect single nucleotide polymorphisms (SNPs)
+        We need to specify the ploidy with `--ploidy`, which is one for the haploid _E. coli_. `-m` allows for multiallelic and rare variant-calling; `-v` tells the program to output variant sites only; `-o` specifies where to write the output files
+	```bash
+	$ bcftools call --ploidy 1 -m -v -o output/bcf/SRR2584866_variants.vcf output/bcf/SRR2584866_raw.bcf 
+	$ grep -v "^##" output/bcf/SRR2584866_variants.vcf | column -t | less -S
+	# can you figure out what information is being recorded?
+	```
+    1. Filter and report the SNP variants in VCF format
+        This uses a custom PERL script as part of the `vcftools` suite
+        ```bash
+	$ vcfutils.pl varFilter output/bcf/SRR2584866_variants.vcf  > output/vcf/SRR2584866_final_variants.vcf
+	$ vimdiff output/vcf/SRR2584866_final_variants.vcf output/bcf/SRR2584866_variants.vcf
+	# can you tell what is the difference before and after the filtering? hint: vimdiff uses vim to display differences between two text files. use ":qa" to quit ("a" means all)
+	```
+
+    1. Challenge
+        Use the `grep` and `wc` commands you learned before to find out how many variants were called
+	```bash
+	$                     # type your commands here
+	# write your answers below
+	# there are _____ variants in total
+	```
+1. Assess the alignment visually
+    > It is often instructive to look at your data in a genome browser. Visualization will allow you to get a “feel” for the data, as well as detecting abnormalities and problems. Also, exploring the data in such a way may give you ideas for further analyses. As such, visualization tools are useful for exploratory analysis. In this lesson we will describe two different tools for visualization: a light-weight command-line based one and the Broad Institute’s Integrative Genomics Viewer (IGV) which requires software installation and transfer of files.
+
+    1. First we need to index the BAM file before we could view it
+        ```bash
+	$ samtools index output/bam/SRR2584866.aligned.sorted.bam
+	```
+    1. Use `samtools tview`
+        ```bash
+	$ samtools tview output/bam/SRR2584866.aligned.sorted.bam data/ref_genome/ecoli_rel606.fasta
+	# hint: record the position of the variants by viewing the VCF output above, and navigate to that line to see the reads supporting the variant call, e.g. CP000819.1:1521, where the first part is the sequence name and the second part the location (_E. coli_ has only one chromosome, so the sequence name is some arbitrary ID)
+	```
+	**Challenge**: What variant is present at position 4377265? What is the canonical nucleotide in that position?
+    1. Use `IGV`
+        This time we will use IGV on your local machine or on FastX, wherever you started the SSH
+	1. Download the result files
+	    ```bash
+	    # note: you need to exit from ARGON (Ctrl+D) or start a new terminal window (just launch the terminal app again)
+	    # now you are on your local machine or FastX
+	    $ mkdir ~/Desktop/files_for_igv # a temporary folder that you can later delete
+	    $ cd ~/Desktop/files_for_igv
+	    $ scp -P 40 HawkID@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/output/bam/SRR2584866.aligned.sorted.bam ~/Desktop/files_for_igv
+	    $ scp -P 40 HawkID@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/output/bam/SRR2584866.aligned.sorted.bam.bai ~/Desktop/files_for_igv
+	    $ scp -P 40 HawkID@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/data/ref_genome/ecoli_rel606.fasta ~/Desktop/files_for_igv
+	    $ scp -P 40 HawkID@argon.hpc.uiowa.edu:~/2020-Data-Skills/workshop/genomics-workshop/output/vcf/SRR2584866_final_variants.vcf ~/Desktop/files_for_igv
+	    ```
+	1. Download Broad Institute Integrated Genome Viewer (IGV)
+	    download the program from http://software.broadinstitute.org/software/igv/download
+	1. Open IGV.
+	1. Load our reference genome file (`ecoli_rel606.fasta`) into IGV using the “Load Genomes from File…“ option under the “Genomes” pull-down menu.
+	1. Load our BAM file (`SRR2584866.aligned.sorted.bam`) using the “Load from File…“ option under the “File” pull-down menu.
+	1. Do the same with our VCF file (`SRR2584866_final_variants.vcf`).
+
+## Variant calling, automated script and job submission
+```bash
+# now you need to go back to the ARGON terminal
+# cd into your ~/2020-Data-Skills/workshop/genomics-workshop/script folder
+$ qsub -t 1-3 run_variant_calling.sh # this will submit the jobs to the scheduler
+```

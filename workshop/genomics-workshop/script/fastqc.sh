@@ -7,7 +7,7 @@
 #----------------------
 # Scheduler parameters
 #  Specify the queue to use
-#! -q BIO-INSTR
+#$ -q BIO-INSTR
 #  give a name to the job, default to script name
 #$ -N fastqc
 #  execute the job from the current working directory

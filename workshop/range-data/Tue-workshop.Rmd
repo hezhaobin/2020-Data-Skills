@@ -38,8 +38,12 @@ biocLite("GenomicRanges")
 ```{r load_library_and_custom_functions}
 library(GenomicRanges)
 library(ggplot2)
-# first, make sure you are in the correct directory
-getwd()       # this should be /path/to/bds-files/chapter-09-working-with-range-data"
+
+# first, make sure you are in the correct directory, i.e. 
+getwd()       # check your working directory
+              # should be "/path/to/bds-files/chapter-09-working-with-range-data"
+# if necessary, use setwd() to change your current working directory
+# setwd("/path/to/bds-files/chapter-09-working-with-range-data")
 list.files()  # you should see many files, including "plot-ranges.R"
 source("plot-ranges.R")
 ```
@@ -115,10 +119,15 @@ y
 restrict(y, 5, 10) # cuts a set of ranges such that they fall inside of certain bound
 plotIRanges(y=y, "y, restricted to (5,10)"=restrict(y, 5, 10))
 
-flank(x, width = 7) #flank creates ranges width positions upstream of the ranges 
-flank(x, width = 7, start=FALSE) #By setting start=false, it flanking ranges downstream
+flank(x, width = 7) # flank creates ranges width positions upstream of the ranges 
+flank(x, width = 7, start=FALSE) # By setting start=false, it flanking ranges downstream
+plotIRanges(x=x, "flank(x, width=7)"=flank(x,width=7), "flank(x, width=7, start=FALSE)"=flank(x, width=7, start=FALSE), set_breaks = FALSE)
+```
 
-# 3. Reduce
+#### Working on multiple ranges
+
+```{r basic_operations_on_multiple_ranges}
+# 1. Reduce
 set.seed(0) # this sets the seed for the pseudo-random number generator
 alns<- IRanges(start = sample(seq_len(50),20), width = 5) 
 # seq_len(50) = 1:50
@@ -152,28 +161,19 @@ Finding overlaps is a very common operation required in genomics, such as counti
 # this operation is direction, that is we start with a "query" and look for overlaps in a "subject"
 qry<- IRanges(start = c(1, 26, 19, 11, 21, 7), end = c(16, 30, 19, 15, 24, 8), names = letters[1:6])
 sbj<- IRanges(start=c(1, 19, 10), end=c(5, 29, 16), names = letters[24:26])
-qry
-sbj
+plotIRanges(query=qry,subject=sbj)
 hts<- findOverlaps(qry, sbj) # find the overlap between the qry and sbj
 hts
-plot()
 
 names(qry)[queryHits(hts)]
 names(sbj)[subjectHits(hts)] # find the name of each query and subject range with an overlap
 
-hts_within<- findOverlaps(qry, sbj, type = "within") #limit our overlap results to only include query ranges that fall entirely within subject ranges
+hts_within<- findOverlaps(qry, sbj, type = "within") # limit our overlap results to only include query ranges that fall entirely within subject ranges
 hts_within
 
 findOverlaps(qry, sbj, select = "first")
 findOverlaps(qry, sbj, select = "last")
 findOverlaps(qry, sbj, select = "arbitrary")
-
-
-sbj_it<- IntervalTree(sbj) # Creating an Interval Tree object from an IRanges object 
-sbj_it
-class(sbj_it)
-
-findOverlaps(qry, sbj_it)
 ```
 ## Extract information
 ```{r}

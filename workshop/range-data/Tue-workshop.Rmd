@@ -1,0 +1,343 @@
+---
+title: Working with range data
+author: Victor Chen, Bin He
+date: 2020-04-09
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Working with Range Data
+
+This workshop is based upon Chapter 9 of Bioinformatic Data Skills by Vincent Buffalo. To use this Rmarkdown file, copy it to your `bds-files/chapter-09-working-with-range-data/` and open it there in RStudio.
+
+## Set up 
+```{r install_packages, eval=FALSE}
+# first examine the R version you have
+print(R.version)
+# if you have R version 3.6 or later, use the following code
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GenomicRanges")
+# if you have earlier versions of R, use the code below 
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+BiocManager::available()
+biocLite("GenomicRanges")
+```
+
+```{r load_library_and_custom_functions}
+library(GenomicRanges)
+library(ggplot2)
+# first, make sure you are in the correct directory
+getwd()       # this should be /path/to/bds-files/chapter-09-working-with-range-data"
+list.files()  # you should see many files, including "plot-ranges.R"
+source("plot-ranges.R")
+```
+
+## IRanges
+We will first familiarize ourselves with the concept of ranges by practicing with generic range objects using the IRanges package. GenomicRanges is a specialized version of IRanges.
+
+### Create and access IRanges objects
+
+Let's look at how we can create an IRanges object and how to access its various parts.
+
+```{r explore_IRanges}
+# load the IRanges package (packages extend the functions of the base R)
+library(IRanges) # you might see some package startup messages when you run this
+library(ggplot2) # the custom plotIRanges() function uses ggplot2
+
+# 1. Create IRanges objects
+#    to construct an IRanges, you need to use the constructor function IRanges()
+rng<- IRanges(start=4, end=13)
+print(rng) # this shows the content of rng. notice how the output is similar/different from a data frame or a tibble
+class(rng) # show the class of the object
+str(rng)   # look inside an IRanges object, with 6 "slots"
+
+# 2. IRanges with specific width
+#    Instead of specifying the start and end position, one can replace end with the width of the range
+IRanges(start=4, width=3)
+IRanges(end=5, width=5)
+
+# 3. Create multiple ranges in one-go
+x<- IRanges(start=c(4, 7, 2, 20), end=c(13, 7, 5, 23))
+print(x)
+
+# 4. You can name each range by doing the following
+names(x)<- letters[1:4] # name the range in letter
+print(x)
+
+# 5. Accessor functions
+#    Remember the different "slots" we see with str(rng)? We can "access" them using special accessor functions
+start(x)
+end(x)
+width(x)
+end(x)<- end(x)+4 
+print(x)
+
+# 6. Subset IRanges
+#    Even though the IRanges object looks like a "table", it's internally stored as a list of individual ranges (i.e. records), and you can subset them just likely you can with a vector
+x[2:3] # The 2 and 3 row of x
+x[start(x)<5] # This will show the subset of ranges with start positions smaller than 5
+x[width(x)>8] # This will show the subset of ranges with start positions bigger than 8
+x['a']        # The row with name "a"
+
+# 7. Concatenate IRanges -- c() works for this!
+a<- IRanges(start = 7, width=4)
+b<- IRanges(start = 2, end = 5)
+c(a,b) # Using the function c() to merge ranges
+```
+
+### Basic Range Operations: Arithmetic, Transformations, and Set Operations
+
+Often times we would like to manipulate ranges, such as enlarging or shrinking them, or performing common "set operations" such as union, difference, etc. With IRanges, you can do these intuitively and fast.
+
+#### Operations on single ranges
+```{r basic_operations_on_single_ranges}
+# 1. Expand or contract (symmetrically)
+x <- IRanges(start=c(40, 80),end = c(67,114))
+x+4L
+x-10L
+plotIRanges(x=x, "x, end position extended by 4"=x+4L, "x, end position reduced by 10"=x-10L, set_breaks = FALSE)
+
+# 2. How to cut off the head/tail of ranges based on a set boundary?
+y <- IRanges(start = c(4, 6, 10, 12), width=13)
+y
+restrict(y, 5, 10) # cuts a set of ranges such that they fall inside of certain bound
+plotIRanges(y=y, "y, restricted to (5,10)"=restrict(y, 5, 10))
+
+flank(x, width = 7) #flank creates ranges width positions upstream of the ranges 
+flank(x, width = 7, start=FALSE) #By setting start=false, it flanking ranges downstream
+
+# 3. Reduce
+set.seed(0) # this sets the seed for the pseudo-random number generator
+alns<- IRanges(start = sample(seq_len(50),20), width = 5) 
+# seq_len(50) = 1:50
+# sample(seq_len(50), 20) randomly samples 20 values from 1:50 without replacement
+head(alns, 4) 
+reduce(alns) # reduce takes a set of possibly overlapping ranges and reduces them to a set of nonoverlapping ranges
+
+# 4. Gaps
+gaps(alns) #find the gap between the ranges
+plotIRanges(alns=alns, "alns, reduced"=reduce(alns), "alns, gaps"=gaps(alns), set_breaks = FALSE)
+```
+
+#### Set operations
+
+Difference, intersection, union
+```{r set_operations}
+a <- IRanges(start=4, end=13)
+b <- IRanges(start=12, end=17)
+intersect(a, b)
+setdiff(a, b)
+setdiff(b, a)
+union(b, a)
+union(a, b)
+plotIRanges("a,b"=c(a,b), "intersect(a,b)"=intersect(a, b), "setdiff(a,b)"=setdiff(a, b), "setdiff(b,a)"=setdiff(b,a), "union(a,b)"=union(b, a))
+```
+
+#### FindOverlaps
+Finding overlaps is a very common operation required in genomics, such as counting reads based on gene annotations. Here we will learn the basics of finding overlaps. Later we will learn more specific operations on genomic ranges
+
+```{r find_overlaps}
+# this operation is direction, that is we start with a "query" and look for overlaps in a "subject"
+qry<- IRanges(start = c(1, 26, 19, 11, 21, 7), end = c(16, 30, 19, 15, 24, 8), names = letters[1:6])
+sbj<- IRanges(start=c(1, 19, 10), end=c(5, 29, 16), names = letters[24:26])
+qry
+sbj
+hts<- findOverlaps(qry, sbj) # find the overlap between the qry and sbj
+hts
+plot()
+
+names(qry)[queryHits(hts)]
+names(sbj)[subjectHits(hts)] # find the name of each query and subject range with an overlap
+
+hts_within<- findOverlaps(qry, sbj, type = "within") #limit our overlap results to only include query ranges that fall entirely within subject ranges
+hts_within
+
+findOverlaps(qry, sbj, select = "first")
+findOverlaps(qry, sbj, select = "last")
+findOverlaps(qry, sbj, select = "arbitrary")
+
+
+sbj_it<- IntervalTree(sbj) # Creating an Interval Tree object from an IRanges object 
+sbj_it
+class(sbj_it)
+
+findOverlaps(qry, sbj_it)
+```
+## Extract information
+```{r}
+as.matrix(hts) # Hits objects can be coerced to matrix
+countQueryHits(hts) # How many subject ranges each query IRanges object overlaps
+setNames(countQueryHits(hts), names(qry))
+countSubjectHits(hts) # How many query ranges overlap the subject ranges
+setNames(countSubjectHits(hts), names(sbj))
+ranges(hts, qry, sbj)
+```
+## SubsetByOverlaps and countOverlaps
+```{r}
+countOverlaps(qry, sbj) #countoverlaps is similar to the soultion using countQueryOverlaps and setnames
+subsetByOverlaps(qry, sbj) #it is same as qry[unique(queryHits(hts))]
+```
+## Finding Nearest Ranges and Calculating Distance
+```{r}
+qry<- IRanges(start=6, end = 13, names = 'query')
+sbj<- IRanges(start = c(2, 4, 18, 19), end = c(4, 5, 21, 24), names = 1:4)
+qry
+sbj
+nearest(qry, sbj) # return the nearest range, regardless of whether it's upsteam or downstream of the query 
+precede(qry, sbj) # return the nearest range that the query is upstream
+follow(qry, sbj) # return the nearest range that the query is downstream
+```
+## Distance to Nearest 
+```{r}
+qry<- IRanges(sample(seq_len(1000), 5), width = 10)
+sbj<- IRanges(sample(seq_len(1000), 5), width = 10)
+qry
+sbj
+distanceToNearest(qry, sbj) # It finds the closest subject range, and returns everything in a Hits object with an additional column indicating the distance
+distance(qry, sbj) # returns each pairwise distance between query and subject ranges
+
+```
+## Run Length Encoding and Views 
+```{r}
+x<- as.integer(c(4, 4, 4, 3, 3, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4))
+xrle<- Rle(x) # Run-length encoding compresses this sequence
+xrle
+
+as.vector(xrle) # revert back to vector 
+```
+## Basic operations of Run-length encoding
+```{r}
+xrle+4L
+xrle/2
+xrle>3
+xrle[xrle>3]
+sum(xrle)
+summary(xrle)
+round(cos(xrle), 2)
+
+runLength(xrle) # Rle object's lengths 
+runValue(xrle) # Rle object's values
+```
+## Coverage(where we encounter Rle)
+```{r}
+set.seed(0)
+rngs<- IRanges(start = sample(seq_len(60), 10), width=7)
+names(rngs)[9]<- "A" # label one range for examples later 
+rngs_cov<- coverage(rngs)
+rngs_cov
+
+rngs_cov[rngs['A']] # what the coverage was in the region overlapping the range laberled "A"
+mean(rngs_cov[rngs["A"]]) # find the mean coverage within this range
+
+rngs_cov> 3 # where is coverage greater than 3
+rngs_cov[as.vector(rngs_cov)>3] # extract the depths that are greater than 3 
+
+```
+## Going from run-length encoded sequences to ranges with slice ()
+```{r}
+min_cov2<- slice(rngs_cov, lower=2) # take our coverage Rle object rngs_cov and slice it to create ranges corresponding to regions with more than 2x coverage
+min_cov2
+```
+## Advanced IRanges:Views
+```{r}
+viewMeans(min_cov2) # find the mean
+viewMaxs(min_cov2) # find the Maximum 
+viewApply(min_cov2, median) # find the median 
+
+length(rngs_cov)
+bwidth<- 5L # we will set bwidth to be our bin width
+end<- bwidth * floor(length(rngs_cov)/ bwidth) # we compute the end position of our window
+windows<- IRanges(start = seq(1, end, bwidth), width = bwidth) # create our windows using IRanges
+head(windows)
+cov_by_wnd<- Views(rngs_cov, windows) # create our views object
+head(cov_by_wnd)
+viewMeans(cov_by_wnd) # get the mean coverage per window 
+```
+## Storing genomic ranges with GenomicRanges 
+```{r}
+library(GenomicRanges)
+gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
+gr
+
+gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
+gr
+
+
+seqlens<- c(chr1=152, chr2=432, chr3=903)
+gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
+seqlengths(gr)<- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
+gr 
+```
+## Accessor functions in GRanges
+```{r}
+seqnames(gr) # sequence name 
+strand(gr) # strand
+ranges(gr) # extract all IRanges ranges from a GRanges object
+length(gr) # length of GRanges
+names(gr)<- letters[1:length(gr)]
+gr
+
+start(gr)>7 # if you want all ranges with a start position greater than 7
+gr[start(gr)>7]
+
+table(seqnames(gr))
+gr[seqnames(gr)=="chr1"] # count how many ranges there are per chromosome and then subset to include only ranges fro a particular chromosome
+
+mcols(gr) # this is used access metadata columns
+
+mcols(gr)$gc
+gr$gc # shortcut for accessing a column 
+
+```
+## Grouping Data with GRangeslist 
+```{r}
+gr1<- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
+gr2<- GRanges(c("chr8", "chr2"), IRanges(start = c(27, 12), width = c(42, 34)))
+grl<- GRangesList(gr1, gr2)
+grl # This is similar to R's lists.
+
+unlist(grl) # unlist combines all GRangeslist elements into a single GRanges object 
+double_grl<- c(grl, grl)
+length(double_grl) # we can combine many GRangeslist objects with c
+double_grl[2] # Accessing certain elements works exactly as it did with R's lists
+
+seqnames(grl) 
+start(grl) # function such as seqnames, start, end, width, ranges also work on GRangeslist objects
+
+```
+## Grangeslists as the result of using the fuction split
+```{r}
+chrs<- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
+gr<- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
+head(gr)
+gr_split<- split(gr, seqnames(gr))
+gr_split[[1]]
+names(gr_split)
+```
+## Lapply and sapply 
+```{r}
+lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist
+sapply(gr_split, function(x)min(start(x))) # Return the start position of the earliest range
+sapply(gr_split, length) # The number of ranges in every GRangeslist object can be returned with this R idiom
+elementLengths(gr_split) # This is a faster approach to calculating element lengths
+```
+## Function like reduce, flank, coverage, findoverlap can work directly with GRangeslist object
+```{r}
+reduce(gr_split)
+```
+
+
+
+

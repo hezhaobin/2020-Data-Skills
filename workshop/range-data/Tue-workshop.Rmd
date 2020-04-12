@@ -48,8 +48,42 @@ list.files()  # you should see many files, including "plot-ranges.R"
 source("plot-ranges.R")
 ```
 
+## A simple example
+
+Let's look at a simple GRanges object and see how it can be useful for genomics analyses
+```{r granges_example}
+gr <- GRanges(
+    seqnames = Rle(c("chr1", "chr2", "chr1", "chr3"), c(1, 3, 2, 4)),
+    ranges = IRanges(101:110, end = 111:120, names = head(letters, 10)),
+    strand = Rle(strand(c("-", "+", "*", "+", "-")), c(1, 2, 2, 3, 2)),
+    score = 1:10,
+    GC = seq(1, 0, length=10))
+gr
+```
+Notice a few things:
+1. The print out format is very similar to a tibble, that is, it lists the column class beneath the column names, e.g. <Rle> for seqnames and <IRanges> for ranges.
+1. Both <Rle> and <IRanges> are new types we have not encountered before (recall <Integer>, <String>, <Factor> and <Boolean> etc.)
+    - keep both types in your mind. we will study them in more details in this workshop.
+
+Let's look at how we can access the information in a granges object, that is, how we can "retrieve" information.
+```{r access_granges_object}
+seqnames(gr) # extract just the sequence names
+ranges(gr)   # extrant just the ranges
+strand(gr)   # extract just the strand information
+granges(gr)  # extract the genomic ranges without the metadata (score and GC)
+mcols(gr)    # extract just the metadata
+mcols(gr)$score # note that mcols(gr) returns a data.frame
+
+# Information about the lengths of the various sequences that the ranges are aligned to can also be stored in the GRanges object. So if this is data from Homo sapiens, we can set the values as:
+seqlengths(gr) <- c(249250621, 243199373, 198022430)
+# And then retrieve as
+seqlengths(gr)
+```
+
+Next we will take a closer look at one of the key abstractions (elements) in a GRanges object, the ranges.
+
 ## IRanges
-We will first familiarize ourselves with the concept of ranges by practicing with generic range objects using the IRanges package. GenomicRanges is a specialized version of IRanges.
+We will familiarize ourselves with the concept of ranges by practicing with generic range objects using the IRanges package. GenomicRanges is a specialized version of IRanges.
 
 ### Create and access IRanges objects
 
@@ -154,8 +188,8 @@ union(a, b)
 plotIRanges("a,b"=c(a,b), "intersect(a,b)"=intersect(a, b), "setdiff(a,b)"=setdiff(a, b), "setdiff(b,a)"=setdiff(b,a), "union(a,b)"=union(b, a))
 ```
 
-#### FindOverlaps
-Finding overlaps is a very common operation required in genomics, such as counting reads based on gene annotations. Here we will learn the basics of finding overlaps. Later we will learn more specific operations on genomic ranges
+### FindOverlaps
+Finding overlaps is a very common operation required in genomics, such as counting reads based on gene annotations. It is seemingly simple but in reality quite complicated, not because of the computation being hard, but because of the intricacy of defining "overlap". Here we will learn the basics of finding overlaps. Later we will learn more specific operations on genomic ranges
 
 ```{r find_overlaps}
 # this operation is direction, that is we start with a "query" and look for overlaps in a "subject"
@@ -174,51 +208,61 @@ hts_within
 findOverlaps(qry, sbj, select = "first")
 findOverlaps(qry, sbj, select = "last")
 findOverlaps(qry, sbj, select = "arbitrary")
-```
-## Extract information
-```{r}
+
+# accessor functions for the internal components of a "hit" object
 as.matrix(hts) # Hits objects can be coerced to matrix
 countQueryHits(hts) # How many subject ranges each query IRanges object overlaps
 setNames(countQueryHits(hts), names(qry))
 countSubjectHits(hts) # How many query ranges overlap the subject ranges
 setNames(countSubjectHits(hts), names(sbj))
-ranges(hts, qry, sbj)
-```
-## SubsetByOverlaps and countOverlaps
-```{r}
-countOverlaps(qry, sbj) #countoverlaps is similar to the soultion using countQueryOverlaps and setnames
+
+# SubsetByOverlaps and countOverlaps
+countOverlaps(qry, sbj) # countoverlaps is similar to the soultion using countQueryOverlaps and setnames
 subsetByOverlaps(qry, sbj) #it is same as qry[unique(queryHits(hts))]
 ```
-## Finding Nearest Ranges and Calculating Distance
-```{r}
+### Finding Nearest Ranges and Calculating Distance
+This is another common operations on ranges, namely finding the nearest ranges and calculating distance from it. Imagine that you have experimentally determined the locations in the genome bound by some important regulatory proteins. Not knowing which gene these proteins regulate, you best guess is that they regulate the gene that is the closest to the protein (often not a bad assumption to start with). Thus your tasks is, given two set of ranges -- the first for the places where the protein binds and the second the "address" for every gene in the genome -- to find the nearest gene to each binding site. Here we will learn how to do this with the abstraction of IRanges
+```{r nearest_ranges_and_distance}
 qry<- IRanges(start=6, end = 13, names = 'query')
 sbj<- IRanges(start = c(2, 4, 18, 19), end = c(4, 5, 21, 24), names = 1:4)
-qry
-sbj
+plotIRanges(query=qry, subject=sbj)
+
 nearest(qry, sbj) # return the nearest range, regardless of whether it's upsteam or downstream of the query 
 precede(qry, sbj) # return the nearest range that the query is upstream
 follow(qry, sbj) # return the nearest range that the query is downstream
-```
-## Distance to Nearest 
-```{r}
+
+# Distance to Nearest 
 qry<- IRanges(sample(seq_len(1000), 5), width = 10)
 sbj<- IRanges(sample(seq_len(1000), 5), width = 10)
-qry
-sbj
+plotIRanges(query=qry, subject=sbj, set_breaks = FALSE)
 distanceToNearest(qry, sbj) # It finds the closest subject range, and returns everything in a Hits object with an additional column indicating the distance
 distance(qry, sbj) # returns each pairwise distance between query and subject ranges
-
 ```
-## Run Length Encoding and Views 
-```{r}
-x<- as.integer(c(4, 4, 4, 3, 3, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4))
-xrle<- Rle(x) # Run-length encoding compresses this sequence
-xrle
+### Calculating coverages
+A common task in genomics analyses is to calculate the coverage, that is, for each position in a genome, how many reads map to that position or range. For example, one may encounter this while sequencing a new genome. Because of the sequencing errors, one usually try to cover each position in that genome with multiple reads, so that sequencing errors can be identified and removed by spotting inconsistence between a subset of the reads at a particular position with the majority of the reads at that position. 
+
+Calculating coverage can be thought of as a special instance of counting overlaps -- when the subject ranges are precisely length of 1 and tiles across the genome (challenge: what would be the mode of counting overlaps in the application to coverage calculation?).
+
+What's special about calculating coverages compared with the type of counting overlaps we just discussed is the data density -- the list of subject ranges is exactly as large as the number of nucleotides (or any other sequences) as the genome (or proteome, etc.). This raises a practical problem: to represent that many ranges and doing calculation over all of them becomes computationally expensive, especially for memory. To solve this problem, researchers have come up with a clever way of encoding coverage data, which is termed run length encoding. We will see what Run Length Encoding is and how it is used in calculating coverages.
+
+#### Run Length Encoding and Views 
+```{r run_length_encoding}
+x <- as.integer(c(4, 4, 4, 3, 3, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4))
+sprintf("The length of the vector x is %i", length(x))
+xrle <- Rle(x) # Run-length encoding compresses this sequence
+xrle          # note that instead of 
+sprintf("The length of the run length object xrle is %i", length(runValue(xrle)))
+# however, in reality the run length object not only store the values and length of each "run", but also other accessory information, making them bigger than the original object when the latter is a small vector. This is often termed memory overheads. What this menas is that Rle is not efficient unless the original vector is rather big. 
+str(xrle)
+# Let's comapre the memory used by the original and Rle encoded objects.
+sprintf("The size of the vector x is %i bytes", object.size(x))
+sprintf("The size of the Rle object xrle is %i bytes", object.size(xrle))
 
 as.vector(xrle) # revert back to vector 
 ```
-## Basic operations of Run-length encoding
-```{r}
+
+#### (Optional) Basic operations of Run-length encoding
+```{r basic_operations_Rle}
 xrle+4L
 xrle/2
 xrle>3
@@ -230,45 +274,51 @@ round(cos(xrle), 2)
 runLength(xrle) # Rle object's lengths 
 runValue(xrle) # Rle object's values
 ```
-## Coverage(where we encounter Rle)
-```{r}
-set.seed(0)
-rngs<- IRanges(start = sample(seq_len(60), 10), width=7)
-names(rngs)[9]<- "A" # label one range for examples later 
-rngs_cov<- coverage(rngs)
-rngs_cov
 
+#### Coverage(where we encounter Rle)
+```{r coverage}
+set.seed(0)
+rngs<- IRanges(start = sample(seq_len(60), 20), width=7)
+names(rngs) <- LETTERS[1:20] # label one range for examples later 
+plotIRanges(rngs, set_breaks = FALSE)
+
+rngs_cov <- coverage(rngs)
 rngs_cov[rngs['A']] # what the coverage was in the region overlapping the range laberled "A"
 mean(rngs_cov[rngs["A"]]) # find the mean coverage within this range
+plotIRanges(rngs, cov = TRUE, set_breaks = FALSE)
 
-rngs_cov> 3 # where is coverage greater than 3
+rngs_cov > 3 # where is coverage greater than 3
 rngs_cov[as.vector(rngs_cov)>3] # extract the depths that are greater than 3 
-
 ```
-## Going from run-length encoded sequences to ranges with slice ()
-```{r}
-min_cov2<- slice(rngs_cov, lower=2) # take our coverage Rle object rngs_cov and slice it to create ranges corresponding to regions with more than 2x coverage
+
+#### (Optional) Going from run-length encoded sequences to ranges with slice()
+Sometimes you want to create ranges based on the coverage data. For example, after mapping your reads to the reference genome, you would like to identify all regions covered by at least two reads, or, conversely, you want to find out all regions with less than two reads, which you may consider leaving out of your analysis. You can do this with the `slice()` function, which operates on an Rle object.
+```{r from_Rle_to_ranges}
+min_cov2 <- slice(rngs_cov, lower=2) # take our coverage Rle object rngs_cov and slice it to create ranges corresponding to regions with more than 2x coverage
 min_cov2
 ```
-## Advanced IRanges:Views
-```{r}
+
+#### (Optional) Advanced IRanges:Views
+```{r views}
 viewMeans(min_cov2) # find the mean
 viewMaxs(min_cov2) # find the Maximum 
 viewApply(min_cov2, median) # find the median 
 
 length(rngs_cov)
 bwidth<- 5L # we will set bwidth to be our bin width
-end<- bwidth * floor(length(rngs_cov)/ bwidth) # we compute the end position of our window
-windows<- IRanges(start = seq(1, end, bwidth), width = bwidth) # create our windows using IRanges
+end <- bwidth * floor(length(rngs_cov)/ bwidth) # we compute the end position of our window
+windows <- IRanges(start = seq(1, end, bwidth), width = bwidth) # create our windows using IRanges
 head(windows)
-cov_by_wnd<- Views(rngs_cov, windows) # create our views object
+cov_by_wnd <- Views(rngs_cov, windows) # create our views object
 head(cov_by_wnd)
 viewMeans(cov_by_wnd) # get the mean coverage per window 
 ```
+
+**Below are for Thursday, but feel free to plow ahead!**
+
 ## Storing genomic ranges with GenomicRanges 
-```{r}
-library(GenomicRanges)
-gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
+```{r creating_granges_object}
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
 gr
 
 gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
@@ -281,7 +331,7 @@ seqlengths(gr)<- seqlens# we can specify the sequence lengths in the GRanges con
 gr 
 ```
 ## Accessor functions in GRanges
-```{r}
+```{r access_information_in_granges}
 seqnames(gr) # sequence name 
 strand(gr) # strand
 ranges(gr) # extract all IRanges ranges from a GRanges object
@@ -301,8 +351,8 @@ mcols(gr)$gc
 gr$gc # shortcut for accessing a column 
 
 ```
-## Grouping Data with GRangeslist 
-```{r}
+## (optional) Grouping Data with GRangeslist 
+```{r grouping_data_with_GRangeslist}
 gr1<- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
 gr2<- GRanges(c("chr8", "chr2"), IRanges(start = c(27, 12), width = c(42, 34)))
 grl<- GRangesList(gr1, gr2)
@@ -315,10 +365,9 @@ double_grl[2] # Accessing certain elements works exactly as it did with R's list
 
 seqnames(grl) 
 start(grl) # function such as seqnames, start, end, width, ranges also work on GRangeslist objects
-
 ```
 ## Grangeslists as the result of using the fuction split
-```{r}
+```{r split_granges}
 chrs<- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
 gr<- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
 head(gr)
@@ -326,18 +375,11 @@ gr_split<- split(gr, seqnames(gr))
 gr_split[[1]]
 names(gr_split)
 ```
-## Lapply and sapply 
-```{r}
+
+## (Optional) Lapply and sapply 
+These functions come from the base R package but can work magically on many extended data classes. However, I advoicate for the switch to the tidyverse standard, which are easier to write and read.
+```{r lapply_and_sapply_on_granges}
 lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist
 sapply(gr_split, function(x)min(start(x))) # Return the start position of the earliest range
 sapply(gr_split, length) # The number of ranges in every GRangeslist object can be returned with this R idiom
-elementLengths(gr_split) # This is a faster approach to calculating element lengths
 ```
-## Function like reduce, flank, coverage, findoverlap can work directly with GRangeslist object
-```{r}
-reduce(gr_split)
-```
-
-
-
-

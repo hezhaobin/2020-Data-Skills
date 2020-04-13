@@ -16,7 +16,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Working with Range Data
 
-This workshop is based upon Chapter 9 of Bioinformatic Data Skills by Vincent Buffalo. To use this Rmarkdown file, copy it to your `bds-files/chapter-09-working-with-range-data/` and open it there in RStudio.
+This workshop is based upon Chapter 9 of Bioinformatic Data Skills by Vincent Buffalo. For the Tuesday portion, you don't need any additional file other than this Rmarkdown itself. To work on it, decide where you will open RStudio -- it is available both on FastX environment and can be easily installed on your local computer (Mac/Windows/Linux). Once you open RStudio, open this Rmarkdown file -- you can get it by either cloning the [2020-Data-Skills](https://github.com/hezhaobin/2020-Data-Skills.git) repository or just copy paste the entire file into a new Rmarkdown file in RStudio.
+
+1. If you have the `bds-files` github repo cloned onto your local computer or on FastX, copy this Rmd file to your `bds-files/chapter-09-working-with-range-data/` and open it there in RStudio.
 
 ## Set up 
 ```{r install_packages, eval=FALSE}
@@ -35,17 +37,87 @@ BiocManager::available()
 biocLite("GenomicRanges")
 ```
 
-```{r load_library_and_custom_functions}
-library(GenomicRanges)
+```{r load_library}
+suppressPackageStartupMessages(library(GenomicRanges))
 library(ggplot2)
+```
 
-# first, make sure you are in the correct directory, i.e. 
-getwd()       # check your working directory
-              # should be "/path/to/bds-files/chapter-09-working-with-range-data"
-# if necessary, use setwd() to change your current working directory
-# setwd("/path/to/bds-files/chapter-09-working-with-range-data")
-list.files()  # you should see many files, including "plot-ranges.R"
-source("plot-ranges.R")
+To be able to visualize some of the range operations, we will use the custom function written by Vince Buffalo. It is originally stored in an R script file named `plot-ranges.R`. To make this Rmarkdown file self-sufficient, I have included the function in this file.
+
+```{r plot_ranges_function, echo=FALSE}
+# plot-ranges.R -- a function for plotting IRanges data
+# Copyright (C) 2014 Vince Buffalo <vsbuffaloAAAAA@gmail.com>
+# Distributed under terms of the BSD license.
+
+covdf <- function(cov) {
+	# from example in IRanges vignette
+	cov <- as.vector(cov)
+	mat <- cbind(seq_along(cov)-0.5, cov)
+	d <- diff(cov) != 0
+	mat <- rbind(cbind(mat[d,1]+1, mat[d,2]), mat)
+	mat <- mat[order(mat[,1]),]
+	data.frame(pos=mat[, 1], cov=mat[, 2])
+}
+
+plotIRanges <- function(..., sep=0.5, height=1, set_breaks=TRUE, labcol="grey",
+												names=NULL, cov=FALSE, clear=FALSE, disjoint=NULL,
+												color=NULL) {
+	if (!is.null(colors)) stopifnot(length(colors) <= 3L)
+	COLORS <- c("white", "#383838", "#DDDDDD")
+	x <- list(...)
+	if (!is.null(names))
+		names(x) <- names
+	dl <- lapply(x, function(d) {
+							 out <- as.data.frame(d)
+							 out$y <- disjointBins(d)
+							 out
+							})
+	d <- do.call(rbind, dl)
+	if (!is.null(disjoint))
+		# manually assigned bins
+		d$y <- disjoint
+	d$ymin <- d$y * (sep + height) - height
+	d$ymax <- d$ymin + height
+	if (!is.null(color))
+		d$color <- color
+	if (length(x) > 1 && is.null(names(x)))
+		stop("multiple ranges must be given names like plotRanges(rng1=y, rng2=x)")
+	if (length(x) > 1)
+		d$range <- factor(rep(names(x), sapply(x, length)), names(x))
+	p <- ggplot(d)
+	if (clear)
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5, xmax=end+0.5),
+											 fill="white", color="grey30", size=0.3)
+	else if(is.null(color))
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5, xmax=end+0.5))
+	else {
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5,
+													 xmax=end+0.5, fill=color), color="grey30", size=0.3)
+		p <- p + scale_fill_manual("", guide=FALSE,
+															 values=COLORS[1:length(unique(color))])
+	}
+	p <- p + theme_bw()
+	if (!is.null(d$names)) {
+		p <- p + geom_text(aes(x=start + width/2 - 0.5,
+													 y=ymin+(ymax-ymin)/2, label=names), size=8, color=labcol)
+	}
+	xmin <- min(d$start)
+	xmax <- max(d$end)
+	xbreaks <- seq(xmin - 1L, xmax + 1L)
+	if (set_breaks)
+		p <- p + scale_x_continuous(breaks=xbreaks)
+	p <- p + theme(panel.grid.major=element_blank(),
+								 panel.grid.minor.y=element_blank(),
+								 axis.ticks=element_blank())
+	if (!cov)
+		p <- p + theme(axis.text.y=element_blank())
+	p <- p + xlab("") + ylab("")
+	if (length(unique(d$range)) > 1)
+		p <- p + facet_wrap(~ range, ncol=1)
+	if (cov)
+		p <- p + geom_line(aes(x=pos, y=cov), covdf(coverage(rngs)), color="red", size=3)
+	p
+}
 ```
 
 ## A simple example
@@ -96,7 +168,7 @@ library(ggplot2) # the custom plotIRanges() function uses ggplot2
 
 # 1. Create IRanges objects
 #    to construct an IRanges, you need to use the constructor function IRanges()
-rng<- IRanges(start=4, end=13)
+rng <- IRanges(start=4, end=13)
 print(rng) # this shows the content of rng. notice how the output is similar/different from a data frame or a tibble
 class(rng) # show the class of the object
 str(rng)   # look inside an IRanges object, with 6 "slots"
@@ -107,11 +179,11 @@ IRanges(start=4, width=3)
 IRanges(end=5, width=5)
 
 # 3. Create multiple ranges in one-go
-x<- IRanges(start=c(4, 7, 2, 20), end=c(13, 7, 5, 23))
+x <- IRanges(start=c(4, 7, 2, 20), end=c(13, 7, 5, 23))
 print(x)
 
 # 4. You can name each range by doing the following
-names(x)<- letters[1:4] # name the range in letter
+names(x) <- letters[1:4] # name the range in letter
 print(x)
 
 # 5. Accessor functions
@@ -119,7 +191,7 @@ print(x)
 start(x)
 end(x)
 width(x)
-end(x)<- end(x)+4 
+end(x) <- end(x)+4 
 print(x)
 
 # 6. Subset IRanges
@@ -130,8 +202,8 @@ x[width(x)>8] # This will show the subset of ranges with start positions bigger 
 x['a']        # The row with name "a"
 
 # 7. Concatenate IRanges -- c() works for this!
-a<- IRanges(start = 7, width=4)
-b<- IRanges(start = 2, end = 5)
+a <- IRanges(start = 7, width=4)
+b <- IRanges(start = 2, end = 5)
 c(a,b) # Using the function c() to merge ranges
 ```
 
@@ -163,7 +235,7 @@ plotIRanges(x=x, "flank(x, width=7)"=flank(x,width=7), "flank(x, width=7, start=
 ```{r basic_operations_on_multiple_ranges}
 # 1. Reduce
 set.seed(0) # this sets the seed for the pseudo-random number generator
-alns<- IRanges(start = sample(seq_len(50),20), width = 5) 
+alns <- IRanges(start = sample(seq_len(50),20), width = 5) 
 # seq_len(50) = 1:50
 # sample(seq_len(50), 20) randomly samples 20 values from 1:50 without replacement
 head(alns, 4) 
@@ -263,10 +335,10 @@ as.vector(xrle) # revert back to vector
 
 #### (Optional) Basic operations of Run-length encoding
 ```{r basic_operations_Rle}
-xrle+4L
-xrle/2
-xrle>3
-xrle[xrle>3]
+xrle + 4L
+xrle  /2
+xrle > 3
+xrle[xrle > 3]
 sum(xrle)
 summary(xrle)
 round(cos(xrle), 2)
@@ -278,7 +350,7 @@ runValue(xrle) # Rle object's values
 #### Coverage(where we encounter Rle)
 ```{r coverage}
 set.seed(0)
-rngs<- IRanges(start = sample(seq_len(60), 20), width=7)
+rngs <- IRanges(start = sample(seq_len(60), 20), width=7)
 names(rngs) <- LETTERS[1:20] # label one range for examples later 
 plotIRanges(rngs, set_breaks = FALSE)
 
@@ -305,7 +377,7 @@ viewMaxs(min_cov2) # find the Maximum
 viewApply(min_cov2, median) # find the median 
 
 length(rngs_cov)
-bwidth<- 5L # we will set bwidth to be our bin width
+bwidth <- 5L # we will set bwidth to be our bin width
 end <- bwidth * floor(length(rngs_cov)/ bwidth) # we compute the end position of our window
 windows <- IRanges(start = seq(1, end, bwidth), width = bwidth) # create our windows using IRanges
 head(windows)
@@ -321,13 +393,13 @@ viewMeans(cov_by_wnd) # get the mean coverage per window
 gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
 gr
 
-gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
 gr
 
 
-seqlens<- c(chr1=152, chr2=432, chr3=903)
-gr<- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
-seqlengths(gr)<- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
+seqlens <- c(chr1=152, chr2=432, chr3=903)
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
+seqlengths(gr) <- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
 gr 
 ```
 ## Accessor functions in GRanges
@@ -336,11 +408,11 @@ seqnames(gr) # sequence name
 strand(gr) # strand
 ranges(gr) # extract all IRanges ranges from a GRanges object
 length(gr) # length of GRanges
-names(gr)<- letters[1:length(gr)]
+names(gr) <- letters[1:length(gr)]
 gr
 
-start(gr)>7 # if you want all ranges with a start position greater than 7
-gr[start(gr)>7]
+start(gr) > 7 # if you want all ranges with a start position greater than 7
+gr[start(gr) > 7]
 
 table(seqnames(gr))
 gr[seqnames(gr)=="chr1"] # count how many ranges there are per chromosome and then subset to include only ranges fro a particular chromosome
@@ -353,13 +425,13 @@ gr$gc # shortcut for accessing a column
 ```
 ## (optional) Grouping Data with GRangeslist 
 ```{r grouping_data_with_GRangeslist}
-gr1<- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
-gr2<- GRanges(c("chr8", "chr2"), IRanges(start = c(27, 12), width = c(42, 34)))
-grl<- GRangesList(gr1, gr2)
+gr1 <- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
+gr2 <- GRanges(c("chr8", "chr2"), IRanges(start = c(27, 12), width = c(42, 34)))
+grl <- GRangesList(gr1, gr2)
 grl # This is similar to R's lists.
 
 unlist(grl) # unlist combines all GRangeslist elements into a single GRanges object 
-double_grl<- c(grl, grl)
+double_grl <- c(grl, grl)
 length(double_grl) # we can combine many GRangeslist objects with c
 double_grl[2] # Accessing certain elements works exactly as it did with R's lists
 
@@ -368,15 +440,15 @@ start(grl) # function such as seqnames, start, end, width, ranges also work on G
 ```
 ## Grangeslists as the result of using the fuction split
 ```{r split_granges}
-chrs<- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
-gr<- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
+chrs <- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
+gr <- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
 head(gr)
-gr_split<- split(gr, seqnames(gr))
+gr_split <- split(gr, seqnames(gr))
 gr_split[[1]]
 names(gr_split)
 ```
 
-## (Optional) Lapply and sapply 
+## (Optional) lapply and sapply 
 These functions come from the base R package but can work magically on many extended data classes. However, I advoicate for the switch to the tidyverse standard, which are easier to write and read.
 ```{r lapply_and_sapply_on_granges}
 lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist

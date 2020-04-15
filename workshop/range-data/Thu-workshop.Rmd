@@ -13,8 +13,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-The first part of this workshop is based on Chapter 9 of our textbook, "Bioinformatic Data Skills" by Vincent Buffalo. It's a continuation of where we left off on Tuesday. The second part is based on a tutorial developed by Jack Gu, links [here](https://blog.dominodatalab.com/genomic-ranges-an-introduction-to-working-with-genomic-data/)
-
 This workshop is self-sufficient, meaning that you can download or copy and paste the entire R markdown file and open it in an RStudio wherever you have it.
 
 Define a custom function (from Vincent Buffalo `bds-files/chapter-09-working-with-range-data`)
@@ -92,69 +90,6 @@ plotIRanges <- function(..., sep=0.5, height=1, set_breaks=TRUE, labcol="grey",
 		p <- p + geom_line(aes(x=pos, y=cov), covdf(coverage(rngs)), color="red", size=3)
 	p
 }
-```
-
-## Storing genomic ranges with GenomicRanges 
-The `GRanges` build off of `IRanges` by adding two other pieces of information necessary to specify a genomic location: sequence name (e.g. which chromosome) and strand (positive/negative, sometimes called Watson vs Crick, after the two Nobel Prize Winnders for DNA structure). `GRanges` objects also have _metadata columns_, which are the data linked to each genomic range. Below we will learn how to construct and manipulate `GRanges`.
-
-```{r install_and_load_packages, eval=FALSE}
-# first examine the R version you have
-print(R.version)
-# if you have R version 3.6 or later, use the following code
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-BiocManager::install("GenomicRanges")
-# if you have earlier versions of R, use the code below 
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install()
-BiocManager::available()
-biocLite("GenomicRanges")
-# load GenomicRanges
-suppressMessages(library(GenomicRanges))
-library(ggplot2)
-```
-
-```{r creating_granges_object}
-gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
-gr
-
-gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
-gr
-
-# The latest version of GRanges contains a number of useful attributes, such as sequence length and genome name
-seqlens <- c(chr1=152, chr2=432, chr3=903)
-gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
-seqlengths(gr) <- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
-genome(gr) <- "Alien"           # name of the genome, whatever it maybe!
-isCircular(gr) <- rep(FALSE, 3) # if you have a bacterial genome or a plasmid, set this attribute to TRUE
-seqinfo(gr)                     # this shows the information associated with the GRanges object
-gr 
-```
-
-## Accessor functions in GRanges
-You can access various information contained in a `GRanges` object using the following accessor functions. Pay special attention to the output -- notice how some of the information are encoded as run length, which we encountered in the Tuesday workshop.
-
-```{r access_information_in_granges}
-seqnames(gr) # sequence name 
-strand(gr)  # strand
-class(strand(gr)) # this shows you that the strand information is encoded as a run length
-ranges(gr)  # extract all IRanges ranges from a GRanges object
-length(gr)  # length of GRanges
-names(gr) <- letters[1:length(gr)]
-gr
-
-start(gr) > 7 # if you want all ranges with a start position greater than 7
-gr[start(gr) > 7]
-
-table(seqnames(gr))
-gr[seqnames(gr)=="chr1"] # count how many ranges there are per chromosome and then subset to include only ranges fro a particular chromosome
-
-mcols(gr) # this is used to access ALL metadata columns. it retunrs a dataframe
-
-mcols(gr)$gc
-gr$gc # shortcut for accessing a metadata column 
 ```
 
 ## A more realistic application

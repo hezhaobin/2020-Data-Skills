@@ -4,6 +4,7 @@ author: Victor Chen, Bin He
 date: 2020-04-09
 output: 
   html_document:
+    highlight: tango
     toc: true
     toc_float: true
 editor_options: 
@@ -388,26 +389,55 @@ viewMeans(cov_by_wnd) # get the mean coverage per window
 
 **Below are for Thursday, but feel free to plow ahead!**
 
+
 ## Storing genomic ranges with GenomicRanges 
+The `GRanges` build off of `IRanges` by adding two other pieces of information necessary to specify a genomic location: sequence name (e.g. which chromosome) and strand (positive/negative, sometimes called Watson vs Crick, after the two Nobel Prize Winnders for DNA structure). `GRanges` objects also have _metadata columns_, which are the data linked to each genomic range. Below we will learn how to construct and manipulate `GRanges`.
+
+```{r install_and_load_packages, eval=FALSE}
+# first examine the R version you have
+print(R.version)
+# if you have R version 3.6 or later, use the following code
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GenomicRanges")
+# if you have earlier versions of R, use the code below 
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+BiocManager::available()
+biocLite("GenomicRanges")
+# load GenomicRanges
+suppressMessages(library(GenomicRanges))
+library(ggplot2)
+```
+
 ```{r creating_granges_object}
 gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
 gr
 
-gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
 gr
 
-
+# The latest version of GRanges contains a number of useful attributes, such as sequence length and genome name
 seqlens <- c(chr1=152, chr2=432, chr3=903)
 gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
 seqlengths(gr) <- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
+genome(gr) <- "Alien"           # name of the genome, whatever it maybe!
+isCircular(gr) <- rep(FALSE, 3) # if you have a bacterial genome or a plasmid, set this attribute to TRUE
+seqinfo(gr)                     # this shows the information associated with the GRanges object
 gr 
 ```
+
 ## Accessor functions in GRanges
+You can access various information contained in a `GRanges` object using the following accessor functions. Pay special attention to the output -- notice how some of the information are encoded as run length, which we encountered in the Tuesday workshop.
+
 ```{r access_information_in_granges}
 seqnames(gr) # sequence name 
-strand(gr) # strand
-ranges(gr) # extract all IRanges ranges from a GRanges object
-length(gr) # length of GRanges
+strand(gr)  # strand
+class(strand(gr)) # this shows you that the strand information is encoded as a run length
+ranges(gr)  # extract all IRanges ranges from a GRanges object
+length(gr)  # length of GRanges
 names(gr) <- letters[1:length(gr)]
 gr
 
@@ -417,41 +447,8 @@ gr[start(gr) > 7]
 table(seqnames(gr))
 gr[seqnames(gr)=="chr1"] # count how many ranges there are per chromosome and then subset to include only ranges fro a particular chromosome
 
-mcols(gr) # this is used access metadata columns
+mcols(gr) # this is used to access ALL metadata columns. it retunrs a dataframe
 
 mcols(gr)$gc
-gr$gc # shortcut for accessing a column 
-
-```
-## (optional) Grouping Data with GRangeslist 
-```{r grouping_data_with_GRangeslist}
-gr1 <- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
-gr2 <- GRanges(c("chr8", "chr2"), IRanges(start = c(27, 12), width = c(42, 34)))
-grl <- GRangesList(gr1, gr2)
-grl # This is similar to R's lists.
-
-unlist(grl) # unlist combines all GRangeslist elements into a single GRanges object 
-double_grl <- c(grl, grl)
-length(double_grl) # we can combine many GRangeslist objects with c
-double_grl[2] # Accessing certain elements works exactly as it did with R's lists
-
-seqnames(grl) 
-start(grl) # function such as seqnames, start, end, width, ranges also work on GRangeslist objects
-```
-## Grangeslists as the result of using the fuction split
-```{r split_granges}
-chrs <- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
-gr <- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
-head(gr)
-gr_split <- split(gr, seqnames(gr))
-gr_split[[1]]
-names(gr_split)
-```
-
-## (Optional) lapply and sapply 
-These functions come from the base R package but can work magically on many extended data classes. However, I advoicate for the switch to the tidyverse standard, which are easier to write and read.
-```{r lapply_and_sapply_on_granges}
-lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist
-sapply(gr_split, function(x)min(start(x))) # Return the start position of the earliest range
-sapply(gr_split, length) # The number of ranges in every GRangeslist object can be returned with this R idiom
+gr$gc # shortcut for accessing a metadata column 
 ```

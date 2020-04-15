@@ -6,17 +6,115 @@ output:
   html_notebook:
     highlight: tango
     toc: TRUE
-    toc_fload: TRUE
+    toc_float: TRUE
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-The first part of this workshop is based on Chapter 9 of our textbook, "Bioinformatic Data Skills" by Vincent Buffalo. It's a continuation of where we left off on Tuesday.
+The first part of this workshop is based on Chapter 9 of our textbook, "Bioinformatic Data Skills" by Vincent Buffalo. It's a continuation of where we left off on Tuesday. The second part is based on a tutorial developed by Jack Gu, links [here](https://blog.dominodatalab.com/genomic-ranges-an-introduction-to-working-with-genomic-data/)
+
+This workshop is self-sufficient, meaning that you can download or copy and paste the entire R markdown file and open it in an RStudio wherever you have it.
+
+Define a custom function (from Vincent Buffalo `bds-files/chapter-09-working-with-range-data`)
+```{r plot_ranges_function, echo=FALSE}
+# plot-ranges.R -- a function for plotting IRanges data
+# Copyright (C) 2014 Vince Buffalo <vsbuffaloAAAAA@gmail.com>
+# Distributed under terms of the BSD license.
+
+covdf <- function(cov) {
+	# from example in IRanges vignette
+	cov <- as.vector(cov)
+	mat <- cbind(seq_along(cov)-0.5, cov)
+	d <- diff(cov) != 0
+	mat <- rbind(cbind(mat[d,1]+1, mat[d,2]), mat)
+	mat <- mat[order(mat[,1]),]
+	data.frame(pos=mat[, 1], cov=mat[, 2])
+}
+
+plotIRanges <- function(..., sep=0.5, height=1, set_breaks=TRUE, labcol="grey",
+												names=NULL, cov=FALSE, clear=FALSE, disjoint=NULL,
+												color=NULL) {
+	if (!is.null(colors)) stopifnot(length(colors) <= 3L)
+	COLORS <- c("white", "#383838", "#DDDDDD")
+	x <- list(...)
+	if (!is.null(names))
+		names(x) <- names
+	dl <- lapply(x, function(d) {
+							 out <- as.data.frame(d)
+							 out$y <- disjointBins(d)
+							 out
+							})
+	d <- do.call(rbind, dl)
+	if (!is.null(disjoint))
+		# manually assigned bins
+		d$y <- disjoint
+	d$ymin <- d$y * (sep + height) - height
+	d$ymax <- d$ymin + height
+	if (!is.null(color))
+		d$color <- color
+	if (length(x) > 1 && is.null(names(x)))
+		stop("multiple ranges must be given names like plotRanges(rng1=y, rng2=x)")
+	if (length(x) > 1)
+		d$range <- factor(rep(names(x), sapply(x, length)), names(x))
+	p <- ggplot(d)
+	if (clear)
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5, xmax=end+0.5),
+											 fill="white", color="grey30", size=0.3)
+	else if(is.null(color))
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5, xmax=end+0.5))
+	else {
+		p <- p + geom_rect(aes(ymin=ymin, ymax=ymax, xmin=start-0.5,
+													 xmax=end+0.5, fill=color), color="grey30", size=0.3)
+		p <- p + scale_fill_manual("", guide=FALSE,
+															 values=COLORS[1:length(unique(color))])
+	}
+	p <- p + theme_bw()
+	if (!is.null(d$names)) {
+		p <- p + geom_text(aes(x=start + width/2 - 0.5,
+													 y=ymin+(ymax-ymin)/2, label=names), size=8, color=labcol)
+	}
+	xmin <- min(d$start)
+	xmax <- max(d$end)
+	xbreaks <- seq(xmin - 1L, xmax + 1L)
+	if (set_breaks)
+		p <- p + scale_x_continuous(breaks=xbreaks)
+	p <- p + theme(panel.grid.major=element_blank(),
+								 panel.grid.minor.y=element_blank(),
+								 axis.ticks=element_blank())
+	if (!cov)
+		p <- p + theme(axis.text.y=element_blank())
+	p <- p + xlab("") + ylab("")
+	if (length(unique(d$range)) > 1)
+		p <- p + facet_wrap(~ range, ncol=1)
+	if (cov)
+		p <- p + geom_line(aes(x=pos, y=cov), covdf(coverage(rngs)), color="red", size=3)
+	p
+}
+```
 
 ## Storing genomic ranges with GenomicRanges 
 The `GRanges` build off of `IRanges` by adding two other pieces of information necessary to specify a genomic location: sequence name (e.g. which chromosome) and strand (positive/negative, sometimes called Watson vs Crick, after the two Nobel Prize Winnders for DNA structure). `GRanges` objects also have _metadata columns_, which are the data linked to each genomic range. Below we will learn how to construct and manipulate `GRanges`.
+
+```{r install_and_load_packages, eval=FALSE}
+# first examine the R version you have
+print(R.version)
+# if you have R version 3.6 or later, use the following code
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GenomicRanges")
+# if you have earlier versions of R, use the code below 
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+BiocManager::available()
+biocLite("GenomicRanges")
+# load GenomicRanges
+suppressMessages(library(GenomicRanges))
+library(ggplot2)
+```
 
 ```{r creating_granges_object}
 gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
@@ -59,42 +157,154 @@ mcols(gr)$gc
 gr$gc # shortcut for accessing a metadata column 
 ```
 
-## (optional) Grouping Data with GRangeslist 
-Recall in Chapter 8 we learned how "lists" in R are a collection of objects. Similarly, we can group `GRanges` objects into a `GRangeslist`, which behaves almost identically as the R lists.
-```{r grouping_data_with_GRangeslist}
-gr1 <- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
-gr2 <- GRanges(c("chr8", "chr2"), IRanges(start = c(27,12), width = c(42, 34)))
-grl <- GRangesList(gr1, gr2)
-grl # This is similar to R's lists.
+## A more realistic application
+This tutorial is entirely based on [Genomic Ranges: An Introduction to Working with Genomic Data](https://blog.dominodatalab.com/genomic-ranges-an-introduction-to-working-with-genomic-data/)
 
-unlist(grl) # unlist combines all GRangeslist elements into a single GRanges object, hence the opposite
-            # of GRangelsLis()
-double_grl <- c(grl, grl)  # you can create GRangeslist using the c() -- concatenate -- function
-length(double_grl)         # this shows you that the newly created list have 2x2 = 4 elements
-double_grl[2] # Accessing certain elements works exactly as it did with R's lists
-seqnames(grl) 
-start(grl) # function such as seqnames, start, end, width, ranges also work on GRangeslist objects
-```
-## (optional) Grangeslists as the result of using the fuction split
-In practice, we don't create GRangeslist manually. Instead, we often encounter GRangeslist as the result of using the function `split()` on `GRanges` objects. One scenario where you would want to use `split()` is when you want to group the ranges by the chromosome they are on:
-```{r split_granges}
-chrs <- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
-gr <- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
-head(gr)
-gr_split <- split(gr, seqnames(gr)) # split() takes two arguments
-# first is the list to be split and second the factor of the
-# *same length* as the list to split it on
-gr_split[[1]]
-names(gr_split)
+### Representing the Genome with a Coordinate System
+The human genome is comprised of roughly 3 billion base pairs organized linearly on 23 pairs of chromosomes. Thus, an intuitive way to represent our genome is to use a coordinate system: “chromosome id” and “position along chromosome”. An annotation like chr1:129-131 would represent the 129th to the 131st base pair on chromosome 1.
+
+Let us load GenomicRanges and create an example object to represent some genomic fragments:
+
+```{r setup_workshop}
+## Installation
+## we assume that GenomicRanges has been installed
+
+## The code below is how to create the an example GRanges object. The code entered here will create 8 segments on either chr1 or chr2, each with defined start and end points. 
+## Each read will also have strand information, indicating which direction the sequence is in. seglengths informs us the maximum length of chr1 and chr2.
+
+example = GRanges(seqnames=c(rep("chr1", 4), rep("chr2", 4)),
+                  ranges = IRanges(start = c(10, 32, 59, 79, 11, 22, 23, 41), 
+                                   end=c(42, 51, 76, 89, 12, 31, 46, 49)),
+                  strand = rep(c("+", "-"), 4), 
+                  seqlengths=c(chr1=120, chr2=70) )
+ 
+## Now let’s take a look at R console representation of example:
+example
+
+## To visualize the ranges, we use split() to make it into two groups
+# ex <- split(example, seqnames(example))
+# plotIRanges(chr1=ranges(ex[1]), chr2=ranges(ex[2]), set_breaks = FALSE)
 ```
 
-## (optional) lapply and sapply 
-These functions come from the base R package but can work magically on many extended data classes. However, I advocate for the switch to the tidyverse standard, which are easier to write and read.
-```{r lapply_and_sapply_on_granges}
-lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist
-sapply(gr_split, function(x) min(start(x))) # Return the start position of the earliest range
-sapply(gr_split, length) # The number of ranges in every GRangeslist object can be returned with this R idiom
+### Accessor for GRanges Object
+We have encountered these before, see if you can figure out how to do the following things (fill in the blanks with the correct code)
+
+```{r accessor_functions}
+# look at the first record in "example"
+
+# look at the sequence names of "example"
+
+# look at the width of the ranges in "example"
+
+# look at the start and end positions of the ranges in "example"
+
+# now let's try to assign some additional information, e.g. exon_id to each of the records
+example$exon_id = 1:8
+example
 ```
+
+### Operation of Individual Ranges
+These are the "arithmetic" operations that we have learned before. Again, see if you remember the commands to do the following:
+```{r granges_arithmetic}
+# shift:
+#    move all ranges 10bp towards the end of the chromosome
+
+#    move all ranges 5bp towards the start of the chromosome
+
+#    to move each piece individually, one could use a vector
+shift(example, 1:8)
+
+# flank:
+#    retrieve 3bp stretch upstream of example
+#    when you finish, examine the results and pay attention to 
+#    the ranges on positive vs negative strands. what did you notice?
+
+# resize:
+#    what does the following command do? figure it out by inspecting 
+#    the results
+resize(example, 10)
+```
+
+### Operations on a set of ranges
+#### `disjoin`
+disjoin reduces the the ranges into the smallest set of unique, non-overlapping pieces that make up the original set. It is strand-specific by default, which means that the first and second piece are not considered to overlap unless told otherwise:
+```{r granges_disjoin}
+disjoin(example)
+disjoin(example, ignore.strand=TRUE)
+```
+
+#### `reduce`
+Similarly, reduce creates the smallest merged set of unique, non-overlapping pieces that cover all the bases the original set does. Strand information is also taken into account by default and can be turned off:
+```{r granges_reduce}
+reduce(example)
+reduce(example, ignore.strand=TRUE)
+```
+
+#### `coverage`
+If one needed to know how many times each base was covered by a read/piece, the coverage function is incredibly helpful:
+```{r granges_coverage}
+coverage(example)
+coverage(example)$chr1
+```
+
+### operations on sets of ranges
+#### Finding overlaps
+GenomicRanges also provides a useful method for finding overlap between two sets of ranges. 
+```{r granges_finding_overlaps}
+# Let us suppose we are interested any of the pieces overlap our piece of interest target:
+target = GRanges(seqnames="chr1", range=IRanges(start=5, 40))
+target
+# To find the overlaps
+ol = findOverlaps(target, example)
+ol
+# To see what piece(s) from example that overlaps target, we access the information stored in ol:
+example[subjectHits(ol)]
+```
+
+### Applied example -- detecting genomic deletions
+Now let us pull together everything that we have been looking at in this post to see if we can detect the presence of a deletion in some more realistically generated data.
+
+With modern sequencing technology, the entire genome is not sequenced in one piece. DNA is usually prepped and shred into smaller fragments in a random process to allow for sequencing of the entire sequence. These smaller pieces are then fed into a machine that produces reads starting in random locations along those pieces. In the case of the most popular Illumina machines, the reads that are produced are 100 base pairs long. These reads are mapped back to the reference genome to find where they came from, and the location information can be loaded into R via GenomicRanges for evaluation.
+
+If there is a **deletion** in the genome, one would _expect to find no reads coming from a certain area_. Let us take a look at the `GRanges` object containing the location information for 2000 simulated reads from an individual. This resembles what might be stored in a `GRanges` object after sequencing a fictitious chromosome Z that is 1000 base pair long in the reference:
+```{r simulate_reads}
+set.seed(1337) # Ensure reproducibility
+# simulate some reads
+starts = floor(runif(2000)*900)+1 # unif(2000)*900 generates 2000
+# random numbers from a uniform distribution from 0-1 and multiply 
+# them by 900 to get a number between 0-900
+# floor()+1 takes the numbers above and strip away the decimal points
+# and add 1, so the smallest is 1, not 0
+reads = GRanges(seqname="chrZ", ranges=IRanges(start=starts, end=starts+99))
+reads
+```
+We can use reduce to see what parts of chrZ is covered by reads:
+```{r coverage}
+reduce(reads)
+# and we can plot it
+plot(coverage(reads)$chrZ, ty="l", main="Coverage of Reads of ChrZ", xlab="Coordinates along ChrZ", ylab="Coverage")
+```
+Note the relatively stable coverage along the length of chrZ. This appears to indicate that there is no deletion along chrZ. Now let us look at another dataset reads_2 that came from a separate individual:
+```{r simulate_another_individual}
+# can you figure out what was done differently here?
+starts = c(floor(runif(1000)*300), floor(runif(1000)*400)+500)+1
+reads_2 = GRanges(seqname="chrZ", ranges=IRanges(start=starts, end = starts+99))
+reduce(reads_2)
+# now let's plot the coverage again
+plot(coverage(reads_2)$chrZ, ty="l", main="Coverage of Reads of ChrZ", xlab="Coordinates along ChrZ", ylab="Coverage")
+```
+Note the area of low to no coverage in the plot and the gap in sequence from `reduce` – this seems to indicate that a segment of chrZ is deleted in the second subject between bases 400 and 500. Now we wish to find **if this deletion overlaps any annotated regions in the reference genome**. This can be achieved using `findOverlaps` and a `GRanges` object containing the annotation information. There are many such annotations that have been created that can be loaded into R. For our example we can use the following annotation `GRanges` object annotation:
+```{r annotation_and_findoverlaps}
+annotation <- GRanges(seqnames="chrZ",
+                      ranges = IRanges(start = c(100,200,400,700), 
+                                       end = c(150,250,550,750)),
+                      strand = "*",
+                      Gene_id = paste("Gene",1:4,sep = "_") )
+annotation
+ol = findOverlaps(GRanges(seqnames="chrZ", ranges=IRanges(start=500, end=600)), annotation)
+annotation[subjectHits(ol)]
+```
+Thus, it would appear that Gene_3 is deleted in the second subject – this information can be passed on to downstream lab scientists for verification as well as general cataloging.
 
 ## Other resources
 I looked at several tutorials and found all of them to be useful but only if you have a biological question in mind. So, they are more like your resource list, in case you need them. Here they are: use them as you see fit:

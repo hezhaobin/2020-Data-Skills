@@ -1,9 +1,10 @@
 ---
-title: "Thu-workshop.Rmd"
+title: "Genomic Ranges workshop"
 author: "Bin He"
 date: "4/11/2020"
 output: 
-  html_document:
+  html_notebook:
+    highlight: tango
     toc: TRUE
     toc_fload: TRUE
 ---
@@ -12,22 +13,143 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+The first part of this workshop is based on Chapter 9 of our textbook, "Bioinformatic Data Skills" by Vincent Buffalo. It's a continuation of where we left off on Tuesday.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Storing genomic ranges with GenomicRanges 
+The `GRanges` build off of `IRanges` by adding two other pieces of information necessary to specify a genomic location: sequence name (e.g. which chromosome) and strand (positive/negative, sometimes called Watson vs Crick, after the two Nobel Prize Winnders for DNA structure). `GRanges` objects also have _metadata columns_, which are the data linked to each genomic range. Below we will learn how to construct and manipulate `GRanges`.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r creating_granges_object}
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+")) # we can create GRanges objects much like we didi with IRanges objects
+gr
 
-```{r cars}
-summary(cars)
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width = 10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3)) # add arbitrary metadata columns by specifying additional named arguments 
+gr
+
+# The latest version of GRanges contains a number of useful attributes, such as sequence length and genome name
+seqlens <- c(chr1=152, chr2=432, chr3=903)
+gr <- GRanges(seqnames = c("chr1", "chr1", "chr2", "chr3"), ranges = IRanges(start = 5:8, width=10), strand = c("+", "-", "-", "+"), gc=round(runif(4),3), seqlengths=seqlens)
+seqlengths(gr) <- seqlens# we can specify the sequence lengths in the GRanges constructor, or set it after the object has been created using the seqlengths function 
+genome(gr) <- "Alien"           # name of the genome, whatever it maybe!
+isCircular(gr) <- rep(FALSE, 3) # if you have a bacterial genome or a plasmid, set this attribute to TRUE
+seqinfo(gr)                     # this shows the information associated with the GRanges object
+gr 
 ```
 
-## Including Plots
+## Accessor functions in GRanges
+You can access various information contained in a `GRanges` object using the following accessor functions. Pay special attention to the output -- notice how some of the information are encoded as run length, which we encountered in the Tuesday workshop.
 
-You can also embed plots, for example:
+```{r access_information_in_granges}
+seqnames(gr) # sequence name 
+strand(gr)  # strand
+class(strand(gr)) # this shows you that the strand information is encoded as a run length
+ranges(gr)  # extract all IRanges ranges from a GRanges object
+length(gr)  # length of GRanges
+names(gr) <- letters[1:length(gr)]
+gr
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+start(gr) > 7 # if you want all ranges with a start position greater than 7
+gr[start(gr) > 7]
+
+table(seqnames(gr))
+gr[seqnames(gr)=="chr1"] # count how many ranges there are per chromosome and then subset to include only ranges fro a particular chromosome
+
+mcols(gr) # this is used to access ALL metadata columns. it retunrs a dataframe
+
+mcols(gr)$gc
+gr$gc # shortcut for accessing a metadata column 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## (optional) Grouping Data with GRangeslist 
+Recall in Chapter 8 we learned how "lists" in R are a collection of objects. Similarly, we can group `GRanges` objects into a `GRangeslist`, which behaves almost identically as the R lists.
+```{r grouping_data_with_GRangeslist}
+gr1 <- GRanges(c("chr1", "chr2"), IRanges(start = c(32,95), width = c(24,123)))
+gr2 <- GRanges(c("chr8", "chr2"), IRanges(start = c(27,12), width = c(42, 34)))
+grl <- GRangesList(gr1, gr2)
+grl # This is similar to R's lists.
+
+unlist(grl) # unlist combines all GRangeslist elements into a single GRanges object, hence the opposite
+            # of GRangelsLis()
+double_grl <- c(grl, grl)  # you can create GRangeslist using the c() -- concatenate -- function
+length(double_grl)         # this shows you that the newly created list have 2x2 = 4 elements
+double_grl[2] # Accessing certain elements works exactly as it did with R's lists
+seqnames(grl) 
+start(grl) # function such as seqnames, start, end, width, ranges also work on GRangeslist objects
+```
+## (optional) Grangeslists as the result of using the fuction split
+In practice, we don't create GRangeslist manually. Instead, we often encounter GRangeslist as the result of using the function `split()` on `GRanges` objects. One scenario where you would want to use `split()` is when you want to group the ranges by the chromosome they are on:
+```{r split_granges}
+chrs <- c("chr3", "chr1", "chr2", "chr2", "chr3", "chr1")
+gr <- GRanges(chrs, IRanges(sample(1:100, 6, replace=TRUE), width = sample(3:30, 6, replace = TRUE)))
+head(gr)
+gr_split <- split(gr, seqnames(gr)) # split() takes two arguments
+# first is the list to be split and second the factor of the
+# *same length* as the list to split it on
+gr_split[[1]]
+names(gr_split)
+```
+
+## (optional) lapply and sapply 
+These functions come from the base R package but can work magically on many extended data classes. However, I advocate for the switch to the tidyverse standard, which are easier to write and read.
+```{r lapply_and_sapply_on_granges}
+lapply(gr_split, function(x) order(width(x))) # Return the order of widths of each GRanges element in a GRangeslist
+sapply(gr_split, function(x) min(start(x))) # Return the start position of the earliest range
+sapply(gr_split, length) # The number of ranges in every GRangeslist object can be returned with this R idiom
+```
+
+## Other resources
+I looked at several tutorials and found all of them to be useful but only if you have a biological question in mind. So, they are more like your resource list, in case you need them. Here they are: use them as you see fit:
+
+- [An Introduction to the GenomicRanges Package](https://bioconductor.org/packages/release/bioc/vignettes/GenomicRanges/inst/doc/GenomicRangesIntroduction.html#introduction)
+    This is the tutorial on the official Bioconductor page for the `GenomicRanges` package
+- [Getting started with the plyranges package](https://www.bioconductor.org/packages/release/bioc/vignettes/plyranges/inst/doc/an-introduction.html)
+    This is built on `GenomicRanges` to enable `dplyr`-like grammar (the `%>%` pipes and `mutate()`, `group_by()` verbs etc.)
+- [Counting reads with `summarizeOverlaps`](http://bioconductor.org/packages/release/bioc/vignettes/GenomicAlignments/inst/doc/summarizeOverlaps.pdf)
+    This is a tutorial specifically aimed at counting reads overlapping certain ranges, e.g. counting transcripts in RNAseq.
+
+Below are some of the first steps for the `plyranges` tutorial. I didn't finish it as the remaining parts seem quite usage-specific. Feel free to use the above websites to browse on your own.
+
+### `plyranges`
+#### 1. Ranges, revisited
+Here we use the `plyranges` package, which builds upon the `IRanges` and `GenomicRanges` packages by adding a `dplyr`-like interface, which makes it much easier to read and write code.
+
+Something I found quite useful from the tutorial above, which I quote verbatim below
+
+> `Ranges` objects can either represent sets of integers as `IRanges` (which have start, end and width attributes) or represent genomic intervals (which have additional attributes, sequence name, and strand) as `GRanges`. In addition, both types of `Ranges` can store information about their intervals as metadata columns (for example GC content over a genomic interval).
+
+> `Ranges` objects follow the tidy data principle: each row of a `Ranges` object corresponds to an interval, while each column will represent a variable about that interval, and generally each object will represent a single unit of observation (like gene annotations).
+
+> Consequently, `Ranges` objects provide a powerful representation for reasoning about genomic data. In this vignette, you will learn more about `Ranges` objects and how via grouping, restriction and summarisation you can perform common data tasks.
+
+```{r install_plyranges}
+# install and import the `plyranges` package, which depends on `tidyverse`, `iranges` and `genomicranges`
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+suppressPackageStartupMessages(BiocManager::install("plyranges"))
+suppressPackageStartupMessages(library(plyranges))
+```
+
+#### 2. Constructing `Ranges`
+```{r constructing_ranges}
+set.seed(100)
+df <- data.frame(start=c(2:-1, 13:15), 
+                 width=c(0:3, 2:0))
+# produces IRanges
+rng <- df %>% as_iranges()
+rng
+```
+A GRanges object is an extension of an IRanges object. For each `range`, there is an associated "sequence name", and an optional column to represent the strandedness of an interval. In addition, each genomic range can have one or more associated metadata, such as coverage, GC content etc.
+
+To construct a `GRanges`, we use the `dplyr` (part of `tidyverse`) pipeline to add the additional `seqnames` and `strand` columns.
+```{r}
+# seqname is required for GRanges, metadata is automatically kept
+# the `sample(LIST, NUM, replace = TRUE)` function performs sampling from "LIST" num of times with replacement
+# the `runif(N)` function generates N pseudo-random numbers from a uniform distribution [0,1]
+grng <- df %>% 
+  transform(seqnames = sample(c("chr1", "chr2"), 7, replace = TRUE),
+         strand = sample(c("+", "-"), 7, replace = TRUE),
+         gc = runif(7)) %>% 
+  as_granges() # this is the constructor function that is similar to as_iranges()
+
+grng
+```

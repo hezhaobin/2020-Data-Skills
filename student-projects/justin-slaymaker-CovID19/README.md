@@ -1,0 +1,2 @@
+Reproduce genome sequence comparison (Fig. 1) and phylogenetic analysis (Fig. 2) from the following paper
+Lu, Roujian, Xiang Zhao, Juan Li, Peihua Niu, Bo Yang, Honglong Wu, Wenling Wang, et al. “Genomic Characterisation and Epidemiology of 2019 Novel Coronavirus: Implications for Virus Origins and Receptor Binding.” Lancet (London, England), January 30, 2020. https://doi.org/10.1016/S0140-6736(20)30251-8.

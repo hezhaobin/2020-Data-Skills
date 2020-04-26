@@ -1,0 +1,2 @@
+This is Yishuo's project, trying to reproduce Figure 1 from the following paper:
+Virginia D. Marks, Shannan J. Ho Sui, Daniel Erasmus, George K. van der Merwe, Jochen Brumm, Wyeth W. Wasserman, Jennifer Bryan, Hennie J. J. van Vuuren, Dynamics of the yeast transcriptome during wine fermentation reveals a novel fermentation stress response, FEMS Yeast Research, Volume 8, Issue 1, February 2008, Pages 35–52, https://doi.org/10.1111/j.1567-1364.2007.00338.x

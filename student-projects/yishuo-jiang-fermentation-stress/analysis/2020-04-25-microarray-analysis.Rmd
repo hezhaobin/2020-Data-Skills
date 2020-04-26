@@ -1,0 +1,93 @@
+---
+title: "Analyze microarray data from Marks et al 2008"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+The script below are based on several tutorials, including
+- the [manual](https://www.bioconductor.org/packages/devel/bioc/vignettes/limma/inst/doc/usersguide.pdf) for the LIMMA package, Section 17.4
+- [Tutorial](https://www.bioconductor.org/packages/devel/workflows/vignettes/arrays/inst/doc/arrays.html) for using Bioconductor to analyze microarray data
+
+```{r setup}
+# set the working directory to `data` folder that is parallel to the `analysis` folder, which contains
+# this script
+knitr::opts_knit$set(root.dir = normalizePath("../data")) 
+```
+
+# Install required packages
+| Package Name | Use |
+|--------------|-----|
+| affy | read and preprocess CEL files |
+| limma | differential gene expression |
+| annotate | load probe set annotation |
+| ygs98.db | the microarray design file |
+
+
+```{r load_libraries}
+require(ggplot2)
+
+# --- uncomment the code below for installing ---
+# install affy and limma if it is not available 
+# by uncommenting the following lines of code.
+# recomment them after you have them installed
+# 
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#
+# BiocManager::install(c("affy","limma"))
+# BiocManager::install(c("annotate","ygs98.db"))
+
+require(affy)
+require(limma)
+require(annotate)
+require(ygs98.db)
+```
+
+# Read data
+```{r read_data}
+# set the target file destination
+URL <- "https://www.ebi.ac.uk/arrayexpress/files/E-GEOD-8536"
+SDRF.file <- "E-GEOD-8536.sdrf.txt"
+Data.file <- "E-GEOD-8536.raw.1.zip"
+
+# download data
+# ---
+# uncomment the following lines to download the data
+# once downloaded, recomment the lines
+# ---
+# download.file(paste(URL,SDRF.file,sep="/"), SDRF.file)
+# download.file(paste(URL,Data.file,sep="/"), Data.file)
+# unzip(Data.file)
+
+# import metadata
+SDRF <- read.delim("E-GEOD-8536.sdrf.txt",check.names=FALSE,stringsAsFactors=FALSE)
+SDRF <- SDRF[order(SDRF$`Array Data File`),] # order the meta info table by scan names
+SDRF[,c("Array Data File","Scan Name")]
+
+# import and inspect array data
+eset <- justRMA(filenames = SDRF$`Array Data.file`)
+
+# create a vector that will be used to assign experiment names to the eset object
+scanName <- SDRF$`Scan Name`; names(scanName) <- SDRF$`Array Data File`
+
+# now let's try to extract the time point
+tmp <- do.call(rbind, strsplit(SDRF$`Scan Name`, " ")); rownames(tmp) <- SDRF$`Array Data File`
+timePoint <- factor(tmp[colnames(eset),1], levels=c(1,12,24,48,60,120,340))
+
+# convert the colnames of the eset object from array file name to scan name (=experimental condition)
+# colnames(eset) <- scanName[colnames(eset)]
+head(exprs(eset))
+plotMDS(eset, cex = 0.8, labels = tmp[colnames(eset),1], col = colorRamp(c("yellow","blue"))(1:6/6)[timePoint])
+
+# gene annotation
+ID <- featureNames(eset) # extract the probe IDs
+# you can decide what information to extract
+# see `columns(ygs98.db)` for possible column names
+Symbol <- select(ygs98.db, keys = ID, columns = c("ORF", "GENENAME", "DESCRIPTION", "GO"))
+fData(eset) <- data.frame(Symbol = Symbol) # this assigns the annotation info to the feature Data of the eset object
+```
+
+# Perform differential gene expression
+
+```{r }

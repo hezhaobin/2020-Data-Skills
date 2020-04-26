@@ -131,3 +131,22 @@ add, subtract, multiply, divide -- try these on an example image
 - Try the Practical challenge for identifying the image that is different from the other two
 
 
+## Detection by thresholding
+Often times the objective of our analysis is to measure the number and intensities of certain features, such as cells, colonies or some bright spots (corresponding to some molecules). The process of identifying these features _programmatically_ from the background is the topic of this section. Sometimes you will read the term "segmentation", as in "segment the cells from the image".
+
+The basic idea of segmenting an image typically consists of pre-processing and thresholding. The former includes steps such as background subtraction and noise reduction. This is then followed by thresholding, a process in which a binary (0 or 1) image is created by comparing the value of each pixel with a threshold (same or changing based on the position in the image) and setting the new value to 0 or 1. The features can then be "labeled" so that they can be referred to individually.
+
+    A word of caution about binary images in ImageJ: while it is intuitive to encode a binary image as a 1-bit image (since only one bit of information is required to store 0/1), it actually uses an 8-bit type, although it only uses 0 and 255. Making things more complex, ImageJ allows either 0 or 255 to represent the background. This is set in the `Process/Binary/Options...` menu. On top of it, one can have an "inverted LUT" that can make the display of the image different from the underlying values.
+
+### Global thresholding
+- Global thresholding refers to the application of a single threshold across the entire image.
+- The alternative is local thresholding, where a threshold is chosen based on some local characteristics, e.g. different background noise in parts of the image.
+- Thresholding can be implemented using the `Image/Adjust/Threshold...` command. When using this command, the same threshold are applied to every pixel in the image, hence _global thresholding_. In fact, you may have realized that thresholding is really a simple point operation, where the pixel value is compared to a constant, and the return value is 1 is the value exceeds the constant, 0 if it doesn't.
+- Manually choosing the threshold is cubersome for large amounts of images and hinders reproducibility (how can you convey your subjective criteria for setting the threshold?). To overcome this problem, ImageJ offers several "auto-thresholding" method, i.e. these methods are programmatic and doesn't require the user's input. Access it with the menu `Image/Adjust/Auto Threshold`
+- Determining thresholds from histograms
+    The rationale for this approach is that during thresholding, one implicitly assumes that there are two classes of pixel in an image -- those that belong to interesting objects and those that do not -- and pixel values in each class have different intensity values. A histogram captures the distribution of the intensity values, regardless of their positions in an image. Thus, it can be used to determine the intensity threshold.
+
+### Local thresholding
+A common problem is that structures that should be detected appear on top of a background that itself varies in brightness. For example, in the red channel of `Hela cells` (`File/Open sample image`), there is no single global threshold capable of identifying and separating all the "spot-like" structures; any choice will miss many of the spots because a threshold high enough to avoid the background will also be too high to catch all the spots occurring in the darker regions.
+
+

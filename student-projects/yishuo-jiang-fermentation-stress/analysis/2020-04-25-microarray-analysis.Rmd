@@ -37,6 +37,9 @@ require(ggplot2)
 #
 # BiocManager::install(c("affy","limma"))
 # BiocManager::install(c("annotate","ygs98.db"))
+#
+# install statmod for robust linear fitting
+# install.packages("statmod")
 
 require(affy)
 require(limma)
@@ -67,7 +70,10 @@ SDRF[,c("Array Data File","Scan Name")]
 
 # import and inspect array data
 eset <- justRMA(filenames = SDRF$`Array Data.file`)
+```
 
+# Formatting data
+```{r formatting_data}
 # create a vector that will be used to assign experiment names to the eset object
 scanName <- SDRF$`Scan Name`; names(scanName) <- SDRF$`Array Data File`
 
@@ -84,10 +90,40 @@ plotMDS(eset, cex = 0.8, labels = tmp[colnames(eset),1], col = colorRamp(c("yell
 ID <- featureNames(eset) # extract the probe IDs
 # you can decide what information to extract
 # see `columns(ygs98.db)` for possible column names
-Symbol <- select(ygs98.db, keys = ID, columns = c("ORF", "GENENAME", "DESCRIPTION", "GO"))
-fData(eset) <- data.frame(Symbol = Symbol) # this assigns the annotation info to the feature Data of the eset object
+# the following line is commented out because the "description" column is too long. however, it may be
+# useful for digging deeper into the functions of the genes
+# Symbol <- select(ygs98.db, keys = ID, columns = c("ORF", "GENENAME", "ENTREZID", "DESCRIPTION"))
+Symbol <- select(ygs98.db, keys = ID, columns = c("ORF", "GENENAME"))
+fData(eset) <- Symbol # this assigns the annotation info to the feature Data of the eset object
+
+# remove probes that do not have an ORF associated
+hasORF <- !is.na(fData(eset)$ORF)
+eset1 <- eset[hasORF,]
+dim(eset1)
 ```
 
 # Perform differential gene expression
 
-```{r }
+```{r DGE}
+design <- model.matrix(~timePoint)
+fit <- lmFit(eset1, design)
+fit <- eBayes(fit, trend=TRUE, robust=TRUE)
+res <- decideTests(fit)
+summary(res)
+
+# look at the top induced genes at 12 hour
+topTable(fit, coef = "timePoint12", n = 10, adjust.method = "BH")
+
+# plot the expression level changes of the top gene across timepoints
+probeID <- topTable(fit, coef = "timePoint12", n = 10, adjust.method = "BH")[,c("PROBEID","ORF")]
+expr <- exprs(eset1)[probeID$PROBEID,]; expr = c(t(expr)) # rotate the expression matrix and turn it into a vector
+# now it is ordered such that each probe goes from timepoint 1-7, then the next gene
+exdat <- data.frame(timePoint = rep(timePoint, times = 10), ORF = rep(probeID$ORF, each = 21), expr = expr)
+p <- ggplot(exdat, aes(x = timePoint, y = expr)) + geom_point() + facet_wrap(~ ORF)
+p
+```
+_Discussion_
+
+1. Here each timepoint from 12 hr to 340 hr is compared to the first timepoint.
+1. The "up" category in the "Intercept" column is not to be interpreted as "upregulated". This simply means the intercept is significantly above zero, that is, the gene is expressed at time zero. This is still a bit surprising though, as I would expect some genes not detectable at any condition.
+1. Judging from the number of significantly up and down genes at each time point, I can't easily tell if there is any pattern, e.g. more gene expression changes at latter time points. But since this is the first pass of the analysis, I need to look more behind the curtain to see what's going on with individual genes.

@@ -149,4 +149,38 @@ The basic idea of segmenting an image typically consists of pre-processing and t
 ### Local thresholding
 A common problem is that structures that should be detected appear on top of a background that itself varies in brightness. For example, in the red channel of `Hela cells` (`File/Open sample image`), there is no single global threshold capable of identifying and separating all the "spot-like" structures; any choice will miss many of the spots because a threshold high enough to avoid the background will also be too high to catch all the spots occurring in the darker regions.
 
+## Filters
+### Practice: count objects in "Hela-cells.tif"
+1. Open the sample image "Hela cells"
+1. Use "duplicate" to make a replicate of just channel 1 (slice 1), which is lysosomes represented in red. You can change the LUT to grey, but that is optional -- it doesn't change the underlying pixel values, just make it easier for you to pick out the spots.
+1. We will first take the median filter approach. Make a duplicate of the replicate you just made, so now we have two identical copies of channel 1 open.
+1. Make one of the two your focal image, then use "Process/filter/median filter ..." with a radius of 15. Other values would work, too. If you check the "preview" checkbox, you should aim at reproducing the background without showing any of the feature you want to count (we will subtract this background from the other copy soon).
+1. Once you are happy about the background, choose apply.
+1. Now you can subtract the background from the original. Use "Process/image calculator..." to do so. Select "create a new image". The other checkbox is optional (32-bit) -- with the default 8-bit, anywhere the subtracted value is negative will be clipped to 0.
+1. Now the background should be much more homogeneous across the image.
+1. The next few steps are more art than science. Play with "Process/binary/open, watershed" to see if you can make the features distinct and disconnected.
+1. To actually isolate features, one strategy is to use "Edit/selection/create selection" and "Edit/selection/add selection to ROI manager". This will create a SINGLE ROI, which you can break it up by using "more/split" in the ROI manager.
+1. If you want to see how well you did, you can select the original, unsubtracted image, and then switch to the ROI manager -- even though it looks like the "show all" checkbox is checked, click it again, you will get all the outlines superimposed on the image. You can now zoom in to see how well you have done.
+1. If you are curious to explore the second approach, read about "analyze particles..." function in FIJI.
+
+## Binary images & operations
+- despite our best effort in filtering and thesholding, the resulting binary images often still contain inaccurate or undesirable regions.
+- morphological operations can be used to refine or modify binary images. the commands are found in the `Process/Binary` menu
+### Erosion and dilations
+_erosion_ and _dilation_ are actually identical to minimum and maximum filtering respectively. These two names are used more often when speaking of binary images, but the operations are the same irrespective of the kind of image. In practice, these two operations are useful for separating or merging features.
+
+### Opening and closeing
+The fact that erosion and dilation alone affect sizes can be a problem. Combining both operations helps achieve this:
+
+- _Opening_ consists of an erosion followed by a dilation. The effect is that, if erosion causes very small objects to completely disappear, clearly the dilation cannot make them reappear, hence the barely-connected objected could be separated by erosion and not reconnected by the dilation step.
+- _Closing_ is the opposite of opening, and has the effect of merging nearby features.
+- The `Erode`, `Dilate`, `Open` and `Close` commands uses a 3 x 3 neighborhood. To perform the operations with larger neighborhoods, one needs to use the `Maximum...` and `Minimum...` filters in combination.
+
+### Outlines, Holes and Maximum
+
+### Image transforms
+An image transform converts an image into some other form, in which the pixel values can have a (sometimes very) different interpretation. Several transforms are relevant to refining image segmentation.
+
+- The distance transform 
+    replaces each pixel value with the distance to the nearest background pixel
 

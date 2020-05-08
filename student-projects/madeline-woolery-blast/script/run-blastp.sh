@@ -13,11 +13,11 @@
 echo "blastp for Bacillus Anthracis Ames Ancestor against itself"
 # gunzip decompress the gzipped fasta file and pipe it to blastp
 # -query - will take the query from standard input
-gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_anthracis -query - -outfmt 7 -out ../output/ref-self-blast.txt 
+gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_anthracis -query - -outfmt "7 qseqid sseqid qlen slen pident mismatch score bitscore evalue" -out ../output/ref-self-blast.txt &
 
 
 echo "blastp for B. anthracis against Bacillus cereus G9241"
-gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_cereus_G9241 -query - -outfmt 7 -out ../output/ref-query1-blast.txt
+gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_cereus_G9241 -query - -outfmt "7 qseqid sseqid qlen slen pident mismatch score bitscore evalue" -out ../output/ref-query1-blast.txt &
 
 echo "blastp for B. anthracis against Bacillus cereus 10987"
-gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_cereus_10987 -query - -outfmt 7 -out ../output/ref-query2-blast.txt
+gunzip -c ../data/GCA_000008445.1_ASM844v1_protein.faa.gz | blastp -db ../data/blastdb/B_cereus_10987 -query - -outfmt "7 qseqid sseqid qlen slen pident mismatch score bitscore evalue" -out ../output/ref-query2-blast.txt &

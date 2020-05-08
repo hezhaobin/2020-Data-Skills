@@ -81,3 +81,5 @@ chomp $temp2[2];
     `$ sh script/make-blast-db.sh`
 1. Perform blastp
     `$ sh script/run-blastp.sh`
+1. Plot the results
+    See `analysis/reproduce-figure.Rmd` and `output/figure2-reproduce.pdf`

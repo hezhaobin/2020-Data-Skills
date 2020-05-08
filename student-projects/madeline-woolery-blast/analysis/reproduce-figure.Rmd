@@ -1,0 +1,89 @@
+---
+title: reproduce Fig. 2 from Rasko et al 2005
+date: 2020-05-08
+author: Bin He
+output: html_notebook
+---
+
+```{r setup}
+# set the working directory of this notebook to the output folder
+# that's where the input files are and where the figures will be stored
+knitr::opts_knit$set(root.dir = normalizePath("../output"))
+library(tidyverse)
+```
+
+
+First we will read in the data with our custom blast output format
+For details, see `../script/run-blastp.sh`
+```{r load_data}
+# blast tabular output default column names
+blast.outfmt7.col.names <- 
+  c("qseqid","sseqid","qlen","slen","pident","mismatch","score","bitscore","evalue")
+ref <- read_tsv("ref-self-blast.txt", comment = "#", col_names = blast.outfmt7.col.names)
+query1 <- read_tsv("ref-query1-blast.txt", comment = "#", col_names = blast.outfmt7.col.names)
+query2 <- read_tsv("ref-query2-blast.txt", comment = "#", col_names = blast.outfmt7.col.names)
+```
+
+Now we will calculate the Blast score ratios
+```{r calc_bsr}
+# 1. for each reference peptide, find the highest score in each of the three blast output and record them as Reference, Query1 and Query2
+refscore <- ref %>% 
+  group_by(qseqid) %>% 
+  summarize(score.ref = max(score))
+
+q1score <- query1 %>% 
+  # the mutate statement removes extra characters in sseqid
+  mutate(sseqid = str_sub(sseqid, 4, -2)) %>% 
+  group_by(qseqid) %>% 
+  select(qseqid, sseqid, score) %>%
+  top_n(n = 1, wt = score)
+
+q1score %>% 
+  count(qseqid) %>% 
+  arrange(desc(n))
+```
+
+Apparently some of the peptides in the reference genome have multiple hits in the query proteome with the same (highest) score.
+
+I manually examined some of the instances and discovered that the corresponding subject sequences in the query proteome are identical despite different seq ids.
+
+Nonetheless, we will carry on for the moment.
+
+```{r calc_bsr_2}
+q1score <- query1 %>% 
+  group_by(qseqid) %>% 
+  summarize(score.query1 = max(score))
+
+q2score <- query2 %>% 
+  group_by(qseqid) %>% 
+  summarize(score.query2 = max(score))
+
+bsr1 <- refscore %>% 
+  left_join(q1score, by = "qseqid", suffix = c("ref","query1")) %>% 
+  mutate(bsr1 = score.query1/score.ref)
+
+bsr2 <- refscore %>% 
+  left_join(q2score, by = "qseqid", suffix = c("ref","query2")) %>% 
+  mutate(bsr2 = score.query2/score.ref)
+
+bsr <- full_join(bsr1, bsr2, by = "qseqid") %>% select(qseqid, bsr1, bsr2)
+```
+
+Now we have all the data, and we can start plotting!
+```{r plottng}
+# to reproduce the scatter plot comparing the two query genomes
+bsr %>% ggplot(aes(x = bsr1, y = bsr2)) + geom_point()
+
+# to immitate the published figure, let's add some colors
+th = 0.4 # this is how they define the four quadrants
+# now let's assign each dot to one of the quadrants
+bsr.col <- bsr %>% 
+  mutate(class = factor((bsr1 > th)*1 + (bsr2 > th)*2, levels = 0:3, labels = c("unique to reference","specific to G9241", "specific to 10987", "conserved")))
+# now let's try again, with some colors
+colors <- c("orange3","green4","blue4","red3")
+bsr.col %>% ggplot(aes(x = bsr2, y = bsr1, col = class)) + 
+  geom_point(cex = 0.5) + scale_color_manual(values = colors) +
+  xlab("B. cereus ATCC10987") + ylab("B. cereus G9241")
+ggsave("figure2-reproduce.pdf")
+```
+

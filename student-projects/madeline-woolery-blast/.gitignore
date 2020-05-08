@@ -1,0 +1,8 @@
+.Rhistory
+.RData
+script/BSR_all_files.zip
+script/BSR_all_files/*
+data/*
+!data/README.md
+output/*
+!output/README.md

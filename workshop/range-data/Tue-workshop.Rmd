@@ -29,7 +29,8 @@ print(R.version)
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-BiocManager::install("GenomicRanges")
+if (!requireNamespace("GenomicRanges", quietly = TRUE))
+    BiocManager::install("GenomicRanges")
 # if you have earlier versions of R, use the code below 
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")

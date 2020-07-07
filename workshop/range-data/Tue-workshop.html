@@ -1277,6 +1277,22 @@ window.buildTabsets = function(tocID) {
 };
 
 </script>
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
 
 
 <style type="text/css">code{white-space: pre;}</style>
@@ -1601,13 +1617,14 @@ div.tocify {
 <span id="cb1-4"><a href="#cb1-4"></a><span class="cf">if</span> (<span class="op">!</span><span class="kw">requireNamespace</span>(<span class="st">&quot;BiocManager&quot;</span>, <span class="dt">quietly =</span> <span class="ot">TRUE</span>))</span>
 <span id="cb1-5"><a href="#cb1-5"></a>    <span class="kw">install.packages</span>(<span class="st">&quot;BiocManager&quot;</span>)</span>
 <span id="cb1-6"><a href="#cb1-6"></a></span>
-<span id="cb1-7"><a href="#cb1-7"></a>BiocManager<span class="op">::</span><span class="kw">install</span>(<span class="st">&quot;GenomicRanges&quot;</span>)</span>
-<span id="cb1-8"><a href="#cb1-8"></a><span class="co"># if you have earlier versions of R, use the code below </span></span>
-<span id="cb1-9"><a href="#cb1-9"></a><span class="cf">if</span> (<span class="op">!</span><span class="kw">requireNamespace</span>(<span class="st">&quot;BiocManager&quot;</span>, <span class="dt">quietly =</span> <span class="ot">TRUE</span>))</span>
-<span id="cb1-10"><a href="#cb1-10"></a>    <span class="kw">install.packages</span>(<span class="st">&quot;BiocManager&quot;</span>)</span>
-<span id="cb1-11"><a href="#cb1-11"></a>BiocManager<span class="op">::</span><span class="kw">install</span>()</span>
-<span id="cb1-12"><a href="#cb1-12"></a>BiocManager<span class="op">::</span><span class="kw">available</span>()</span>
-<span id="cb1-13"><a href="#cb1-13"></a><span class="kw">biocLite</span>(<span class="st">&quot;GenomicRanges&quot;</span>)</span></code></pre></div>
+<span id="cb1-7"><a href="#cb1-7"></a><span class="cf">if</span> (<span class="op">!</span><span class="kw">requireNamespace</span>(<span class="st">&quot;GenomicRanges&quot;</span>, <span class="dt">quietly =</span> <span class="ot">TRUE</span>))</span>
+<span id="cb1-8"><a href="#cb1-8"></a>    BiocManager<span class="op">::</span><span class="kw">install</span>(<span class="st">&quot;GenomicRanges&quot;</span>)</span>
+<span id="cb1-9"><a href="#cb1-9"></a><span class="co"># if you have earlier versions of R, use the code below </span></span>
+<span id="cb1-10"><a href="#cb1-10"></a><span class="cf">if</span> (<span class="op">!</span><span class="kw">requireNamespace</span>(<span class="st">&quot;BiocManager&quot;</span>, <span class="dt">quietly =</span> <span class="ot">TRUE</span>))</span>
+<span id="cb1-11"><a href="#cb1-11"></a>    <span class="kw">install.packages</span>(<span class="st">&quot;BiocManager&quot;</span>)</span>
+<span id="cb1-12"><a href="#cb1-12"></a>BiocManager<span class="op">::</span><span class="kw">install</span>()</span>
+<span id="cb1-13"><a href="#cb1-13"></a>BiocManager<span class="op">::</span><span class="kw">available</span>()</span>
+<span id="cb1-14"><a href="#cb1-14"></a><span class="kw">biocLite</span>(<span class="st">&quot;GenomicRanges&quot;</span>)</span></code></pre></div>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a><span class="kw">suppressPackageStartupMessages</span>(<span class="kw">library</span>(GenomicRanges))</span>
 <span id="cb2-2"><a href="#cb2-2"></a><span class="kw">library</span>(ggplot2)</span></code></pre></div>
 <p>To be able to visualize some of the range operations, we will use the custom function written by Vince Buffalo. It is originally stored in an R script file named <code>plot-ranges.R</code>. To make this Rmarkdown file self-sufficient, I have included the function in this file.</p>
@@ -1623,18 +1640,18 @@ div.tocify {
 <span id="cb3-6"><a href="#cb3-6"></a>    <span class="dt">GC =</span> <span class="kw">seq</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dt">length=</span><span class="dv">10</span>))</span>
 <span id="cb3-7"><a href="#cb3-7"></a>gr</span></code></pre></div>
 <pre><code>## GRanges object with 10 ranges and 2 metadata columns:
-##     seqnames    ranges strand |     score                GC
-##        &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;integer&gt;         &lt;numeric&gt;
-##   a     chr1   101-111      - |         1                 1
-##   b     chr2   102-112      + |         2 0.888888888888889
-##   c     chr2   103-113      + |         3 0.777777777777778
-##   d     chr2   104-114      * |         4 0.666666666666667
-##   e     chr1   105-115      * |         5 0.555555555555556
-##   f     chr1   106-116      + |         6 0.444444444444444
-##   g     chr3   107-117      + |         7 0.333333333333333
-##   h     chr3   108-118      + |         8 0.222222222222222
-##   i     chr3   109-119      - |         9 0.111111111111111
-##   j     chr3   110-120      - |        10                 0
+##     seqnames    ranges strand |     score        GC
+##        &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;integer&gt; &lt;numeric&gt;
+##   a     chr1   101-111      - |         1  1.000000
+##   b     chr2   102-112      + |         2  0.888889
+##   c     chr2   103-113      + |         3  0.777778
+##   d     chr2   104-114      * |         4  0.666667
+##   e     chr1   105-115      * |         5  0.555556
+##   f     chr1   106-116      + |         6  0.444444
+##   g     chr3   107-117      + |         7  0.333333
+##   h     chr3   108-118      + |         8  0.222222
+##   i     chr3   109-119      - |         9  0.111111
+##   j     chr3   110-120      - |        10  0.000000
 ##   -------
 ##   seqinfo: 3 sequences from an unspecified genome; no seqlengths</code></pre>
 <p>Notice a few things: 1. The print out format is very similar to a tibble, that is, it lists the column class beneath the column names, e.g. <Rle> for seqnames and <IRanges> for ranges. 1. Both <Rle> and <IRanges> are new types we have not encountered before (recall <Integer>, <String>, <Factor> and <Boolean> etc.) - keep both types in your mind. we will study them in more details in this workshop.</p>
@@ -1681,18 +1698,18 @@ div.tocify {
 ##   seqinfo: 3 sequences from an unspecified genome; no seqlengths</code></pre>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="kw">mcols</span>(gr)    <span class="co"># extract just the metadata</span></span></code></pre></div>
 <pre><code>## DataFrame with 10 rows and 2 columns
-##       score                GC
-##   &lt;integer&gt;         &lt;numeric&gt;
-## a         1                 1
-## b         2 0.888888888888889
-## c         3 0.777777777777778
-## d         4 0.666666666666667
-## e         5 0.555555555555556
-## f         6 0.444444444444444
-## g         7 0.333333333333333
-## h         8 0.222222222222222
-## i         9 0.111111111111111
-## j        10                 0</code></pre>
+##       score        GC
+##   &lt;integer&gt; &lt;numeric&gt;
+## a         1  1.000000
+## b         2  0.888889
+## c         3  0.777778
+## d         4  0.666667
+## e         5  0.555556
+## f         6  0.444444
+## g         7  0.333333
+## h         8  0.222222
+## i         9  0.111111
+## j        10  0.000000</code></pre>
 <div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a><span class="kw">mcols</span>(gr)<span class="op">$</span>score <span class="co"># note that mcols(gr) returns a data.frame</span></span></code></pre></div>
 <pre><code>##  [1]  1  2  3  4  5  6  7  8  9 10</code></pre>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="co"># Information about the lengths of the various sequences that the ranges are aligned to can also be stored in the GRanges object. So if this is data from Homo sapiens, we can set the values as:</span></span>
@@ -2243,8 +2260,8 @@ div.tocify {
 ##       seqnames    ranges strand |        gc
 ##          &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;numeric&gt;
 ##   [1]     chr1      5-14      + |     0.382
-##   [2]     chr1      6-15      - |      0.87
-##   [3]     chr2      7-16      - |      0.34
+##   [2]     chr1      6-15      - |     0.870
+##   [3]     chr2      7-16      - |     0.340
 ##   [4]     chr3      8-17      + |     0.482
 ##   -------
 ##   seqinfo: 3 sequences from Alien genome</code></pre>
@@ -2282,8 +2299,8 @@ div.tocify {
 ##     seqnames    ranges strand |        gc
 ##        &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;numeric&gt;
 ##   a     chr1      5-14      + |     0.382
-##   b     chr1      6-15      - |      0.87
-##   c     chr2      7-16      - |      0.34
+##   b     chr1      6-15      - |     0.870
+##   c     chr2      7-16      - |     0.340
 ##   d     chr3      8-17      + |     0.482
 ##   -------
 ##   seqinfo: 3 sequences from Alien genome</code></pre>
@@ -2305,7 +2322,7 @@ div.tocify {
 ##     seqnames    ranges strand |        gc
 ##        &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;numeric&gt;
 ##   a     chr1      5-14      + |     0.382
-##   b     chr1      6-15      - |      0.87
+##   b     chr1      6-15      - |     0.870
 ##   -------
 ##   seqinfo: 3 sequences from Alien genome</code></pre>
 <div class="sourceCode" id="cb212"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb212-1"><a href="#cb212-1"></a><span class="kw">mcols</span>(gr) <span class="co"># this is used to access ALL metadata columns. it retunrs a dataframe</span></span></code></pre></div>
@@ -2313,8 +2330,8 @@ div.tocify {
 ##          gc
 ##   &lt;numeric&gt;
 ## a     0.382
-## b      0.87
-## c      0.34
+## b     0.870
+## c     0.340
 ## d     0.482</code></pre>
 <div class="sourceCode" id="cb214"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb214-1"><a href="#cb214-1"></a><span class="kw">mcols</span>(gr)<span class="op">$</span>gc</span></code></pre></div>
 <pre><code>## [1] 0.382 0.870 0.340 0.482</code></pre>
@@ -2373,7 +2390,7 @@ $(document).ready(function ()  {
       theme: "bootstrap3",
       context: '.toc-content',
       hashGenerator: function (text) {
-        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_').toLowerCase();
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
       },
       ignoreSelector: ".toc-ignore",
       scrollTo: 0
